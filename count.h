@@ -1,5 +1,5 @@
 #define PI 3.14159265359
-#define EPS 1.0e-3
+#define EPS 1.0e-4
 #define JMAX 22
 #define JMAXP JMAX+1
 #define K 5
@@ -7,5 +7,3 @@
 #include <math.h>
 double qsimp(double (*func)(double), double a, double b);
 double qtrap(double (*func)(double), double a, double b);
-double qromb(double (*func)(double), double a, double b);
-

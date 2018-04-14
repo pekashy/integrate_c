@@ -1,4 +1,5 @@
 #include <pthread.h>
+#include <stdlib.h>
 #include "count.h"
 
 #define PI 3.14159265359
@@ -9,39 +10,48 @@ typedef struct borders{
 } borders;
 
 double f(double x){
-    return x*x;
+    return x*x; //1- 0.041667 2- 0.291667
 }
 
 void* threadFunc(void* b){
     double (*fp) (double x)=f;
     borders* bord = (borders*) b;
-    //FILE *out=fopen("grph.txt", "wb");
-    double s=bord->a, fin=s+0.0001, FTrap, FSimp, FRomberg;
-    FTrap=0; FSimp=0; FRomberg=0;
-    //printf("%e %e %e\n",fin,bord->b, FRomberg);
-
+    double s=bord->a, fin=s+0.00001, FSimp=0;
     while(fin<bord->b){
-        //FTrap+=qtrap(fp, s, fin);
-        //FSimp+=qsimp(fp, s, fin);
-        //printf("AAA %e\n",FRomberg);
-        FRomberg+=qromb(fp, s, fin);
-        //fprintf(out, "%e %e %e %e\n", (s+fin)/2, FTrap, FSimp, FRomberg);
-        s+=0.0001;
-        fin+=0.0001;
+        FSimp+=qsimp(fp, s, fin);
+        s+=0.00001;
+        fin+=0.00001;
     }
-    printf("%e",FRomberg);
+    printf("%f %f %f\n", bord->a, bord->b, FSimp);
+    double * ret= malloc(sizeof(double));
+    *ret=FSimp;
+    return ret;
 }
 
 int main() {
-    int n=2;
-    borders b={0, 1};
+    int n=12;
+    double a=0;
+    double b=1;
+    borders* bo=malloc(sizeof(borders)*n);
+    for(int i=0; i<n; i++){
+        bo[i].a=(b-a)/n*i;
+        bo[i].b=(b-a)/n*(i+1);
+    }
+    double result=0;
     pthread_t threads[n];
-    int status=pthread_create(&threads[0], NULL, threadFunc, &b);
-    return pthread_join(threads[0], NULL); /* Wait until thread is finished */
+    for(int i=0; i<n-1; i++){
+        if(pthread_create(&threads[i], NULL, threadFunc, &bo[i])!=0){
+            printf("err creating thread");
+            return 0;
+        }
+    }
+    double* ret[n];
+    result=result+*((double*) threadFunc(&bo[n-1]));
+    for(int i=0; i<n-1; i++){
+        pthread_join(threads[i], (void**) &ret[i]);
+        result+=*ret[i];
+    } /* Wait until thread is finished */
 
+    printf("%f\n", result);
     return 0;
 }
-
-
-
-
