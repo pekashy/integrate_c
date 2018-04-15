@@ -1,6 +1,6 @@
 #define PI 3.14159265359
-#define EPS 1.0e-4
 #define JMAX 22
+#define EPS 1.0e-4
 #define JMAXP JMAX+1
 #define K 5
 #include <stdio.h>
