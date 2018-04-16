@@ -1,5 +1,5 @@
 #define PI 3.14159265359
-#define NEPS 6
+#define NEPS 5
 #define JMAX 20
 #define EPS 1*pow(10, -NEPS)
 #define JMAXP JMAX+1
@@ -9,3 +9,4 @@
 #include <math.h>
 double qsimp(double (*func)(double), double a, double b);
 double qtrap(double (*func)(double), double a, double b);
+double qromb(double (*func)(double), double a, double b);
