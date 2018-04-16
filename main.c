@@ -1,11 +1,4 @@
-#include <pthread.h>
-#include <stdlib.h>
-#include <sched.h>
-#include <errno.h>
-#include <zconf.h>
 #include "count.h"
-
-#define PI 3.14159265359
 
 typedef struct borders{
     double a;
@@ -28,7 +21,7 @@ void* threadFunc(void* b){
     */
     borders* bord = (borders*) b;
     double FSimp=qsimp(fp, bord->a, bord->b);
-    printf("%f %f %f\n", bord->a, bord->b, FSimp);
+    //printf("%f %f %f\n", bord->a, bord->b, FSimp);
     //double * ret= malloc(sizeof(double));
     *bord->summ=FSimp;
     return bord->summ;
@@ -80,11 +73,11 @@ int main(int argc, char* argv[]) {
         }
     }
     double* ret[n];
+    result=result+*((double*) threadFunc(&bo[n-1]));
     for(int i=0; i<n-1; i++){
         pthread_join(threads[i], (void**) &ret[i]);
         result+=*ret[i];
     } /* Wait until thread is finished */
-    result=result+*((double*) threadFunc(&bo[n-1]));
 
     printf("%e\n", result);
     return 0;
