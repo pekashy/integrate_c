@@ -11,7 +11,7 @@ double trapzd(double (*func)(double), double a, double b, int n) {
     if (n == 1) {
         return (s=0.5*(b-a)*(func(a)+func(b)));
     } else {
-        for (it=1,j=1;j<n-1;j++) it*=2;
+        it=(int) pow(2, n-1);
         tnm=it;
         del=(b-a)/tnm;
         x=a+0.5*del;

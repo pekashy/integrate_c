@@ -15,3 +15,4 @@ set(SOURCE_FILES
 
 add_executable(integrate_c main.c count.c)
 target_link_libraries (integrate_c ${CMAKE_THREAD_LIBS_INIT})
+target_link_libraries(integrate_c m)
