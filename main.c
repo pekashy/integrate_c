@@ -7,19 +7,65 @@ typedef struct borders{
     double* summ;
 } borders;
 
+int* cores;
+
 double f(double x){
     return x*x; //1- 0.041667 2- 0.291667
 }
 
+int* getCpuTopology() {
+    char cpuinfo[] = "lscpu -p=cpu,core";
+    FILE* f = popen (cpuinfo, "r");
+    if (!f){
+        perror ("error opening cpuinfo file");
+        return NULL;
+    }
+    int nproc = sysconf (_SC_NPROCESSORS_CONF);
+    int out[nproc*2];
+    int* cores = (int*) malloc ((nproc + 1) * sizeof (int));
+    if (!cores) {
+        perror ("malloc error");
+        return NULL;
+    }
+    for (int i = 0; i <= nproc; i++)
+        cores[i] = -1;
+    int coreNum = 0;
+    fscanf(f, "%*[^\n]\n", NULL); //skiping # lines in output
+    fscanf(f, "%*[^\n]\n", NULL);
+    fscanf(f, "%*[^\n]\n", NULL);
+    fscanf(f, "%*[^\n]\n", NULL);
+
+    for(int i=0; i<nproc*2; i+=2){
+        fscanf(f, "\n%d,%d", &out[i],&out[i+1]);
+        printf("%d %d\n", out[i], out[i+1]);
+    }
+    /*if (res == EOF) {
+        perror ("cpuinfo parsing error");
+        return NULL;
+    }*/
+    //i=0;
+    for(int a=0; a<nproc; a++){
+        if (cores[out[a*2]] == -1) {
+            cores[out[a*2]] = out[a*2+1];
+            coreNum++;
+        }
+    }
+    errno = 0;
+    fclose (f);
+    if (errno) {
+        perror ("closing error");
+        return NULL;
+    }
+    return cores;
+}
+
 void* threadFunc(void* b){
     double (*fp) (double x)=f;
-    //cpu_set_t cpuset;
-    /*CPU_ZERO (&cpuset);
-    CPU_SET (cores[n + 1], &cpuset);
-
-    sched_setaffinity (pthread_self(), sizeof (cpu_set_t), &cpuset);
-    */
     borders* bord = (borders*) b;
+    cpu_set_t mask;
+    CPU_ZERO (&mask);
+    CPU_SET (cores[bord->n], &mask);
+    printf("trying to bound thread %d to core %d of cpusetsize %d: %d (0 is success)\n",bord->n, cores[bord->n], sizeof (cpu_set_t), pthread_setaffinity_np (pthread_self(), sizeof (cpu_set_t), &mask));
     double FSimp=qsimp(fp, bord->a, bord->b);
     //printf("%f %f %f\n", bord->a, bord->b, FSimp);
     //double * ret= malloc(sizeof(double));
@@ -57,12 +103,13 @@ int main(int argc, char* argv[]) {
     double a=0;
     double b=100;
     borders* bo=malloc(sizeof(borders)*n);
+    cores=getCpuTopology();
     for(int i=0; i<n; i++){
         bo[i].a=(b-a)/n*i;
         bo[i].b=(b-a)/n*(i+1);
         bo[i].summ=malloc(sizeof(double));
         *bo[i].summ=0;
-        bo[i].n=n;
+        bo[i].n=i;
     }
     double result=0;
     pthread_t threads[n];

@@ -1,3 +1,5 @@
+#define _GNU_SOURCE
+
 #include <stdlib.h>
 #include <pthread.h>
 #include <stdio.h>
@@ -13,6 +15,5 @@
 #define EPS 1*pow(10, -NEPS)
 #define JMAXP JMAX+1
 #define K 5
-#define _GNU_SOURCE
 
 double qsimp(double (*func)(double), double a, double b);
