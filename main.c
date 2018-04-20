@@ -60,12 +60,17 @@ int* getCpuTopology() {
 }
 
 void* threadFunc(void* b){
+    printf("ID: %lu, CPU: %d\n", pthread_self(), sched_getcpu());
     double (*fp) (double x)=f;
     borders* bord = (borders*) b;
-    cpu_set_t mask;
+    //cores[1]=2;
+    //cores[3]=2;
+    /*cpu_set_t mask;
+    pthread_getaffinity_np(pthread_self(), sizeof(cpu_set_t), &mask);
     CPU_ZERO (&mask);
-    CPU_SET (cores[bord->n], &mask);
-    printf("trying to bound thread %d to core %d of cpusetsize %d: %d (0 is success)\n",bord->n, cores[bord->n], sizeof (cpu_set_t), pthread_setaffinity_np (pthread_self(), sizeof (cpu_set_t), &mask));
+    CPU_SET (bord->n, &mask);
+    printf("trying to bound thread %d to core %d of cpusetsize %d: %d (0 is success)\n",bord->n, bord->n, sizeof (cpu_set_t), pthread_setaffinity_np (pthread_self(), sizeof (cpu_set_t), &mask));
+    pthread_getaffinity_np(pthread_self(), sizeof(cpu_set_t), &mask);*/
     double FSimp=qsimp(fp, bord->a, bord->b);
     //printf("%f %f %f\n", bord->a, bord->b, FSimp);
     //double * ret= malloc(sizeof(double));
@@ -103,7 +108,7 @@ int main(int argc, char* argv[]) {
     double a=0;
     double b=100;
     borders* bo=malloc(sizeof(borders)*n);
-    cores=getCpuTopology();
+    //cores=getCpuTopology();
     for(int i=0; i<n; i++){
         bo[i].a=(b-a)/n*i;
         bo[i].b=(b-a)/n*(i+1);
@@ -113,8 +118,17 @@ int main(int argc, char* argv[]) {
     }
     double result=0;
     pthread_t threads[n];
-    for(int i=0; i<n-1; i++){
-        if(pthread_create(&threads[i], NULL, threadFunc, &bo[i])!=0){
+
+    pthread_attr_t attr;
+    cpu_set_t mask;
+    pthread_attr_init(&attr);
+    int mainCpu=sched_getcpu();
+    for(int i=0; i<n && n>1; i++){
+        if(i==mainCpu) continue;
+        CPU_ZERO(&mask);
+        CPU_SET(i, &mask);
+        pthread_attr_setaffinity_np(&attr, sizeof(cpu_set_t), &mask);
+        if(pthread_create(&threads[i], &attr, threadFunc, &bo[i])!=0){
             printf("err creating thread");
             return 0;
         }
