@@ -58,12 +58,13 @@ int* getCpuTopology() {
 }
 
 void* threadFunc(void* b){
-    printf("ID: %lu, CPU: %d\n", pthread_self(), sched_getcpu());
     double (*fp) (double x)=f;
     borders* bord = (borders*) b;
     double FSimp=qsimp(fp, bord->a, bord->b);
     double * summ= malloc((sizeof(double)));
     *summ=FSimp;
+   // printf("ID: %lu, CPU: %d\n", pthread_self(), sched_getcpu());
+
     return summ;
 }
 
@@ -96,36 +97,48 @@ int main(int argc, char* argv[]) {
     if(!n) return -1;
     double a=0;
     double b=100;
-    borders* bo=malloc(sizeof(borders)*sysconf (_SC_NPROCESSORS_CONF));
+    int allcores=sysconf (_SC_NPROCESSORS_CONF);
+    borders* bo=malloc(sizeof(borders)*allcores);
     double result=0;
     pthread_t threads[n];
-
     pthread_attr_t attr;
     cpu_set_t mask;
     pthread_attr_init(&attr);
     int mCpu=sched_getcpu();
-    printf("MAIN: ID: %lu, CPU: %d\n", pthread_self(), mCpu);
+   // printf("MAIN: ID: %lu, CPU: %d\n", pthread_self(), mCpu);
     //if(mCpu!=3)return 0;
-    int k=0;
-    for(int i=0; i<n && n>1; i++){
-        if(i==mCpu){
-            k=i;
+    int k=-1, ncores=0;
+    for(int i=0; ncores<n-1 && i<allcores; i++){
+       // printf("i: %d k: %d mCpu:%d\n",i,k, (mCpu=sched_getcpu()));
+        if(i==(mCpu=sched_getcpu())){
+            k=i; //number of intertval we integrate on mother thread
+            //i++;
             continue;
         }
+        //if(mCpu>=i)n--;
+        //printf("i: %d k:%d mCpu:%d\n",i,k, mCpu);
+
         bo[i].a=a+(b-a)/n*i;
         bo[i].b=a+(b-a)/n*(i+1);
         CPU_ZERO(&mask);
         CPU_SET(i, &mask);
         pthread_attr_setaffinity_np(&attr, sizeof(cpu_set_t), &mask);
-        if(pthread_create(&threads[i], &attr, threadFunc, &bo[i])!=0){
+        long child;
+        if((pthread_create(&threads[i], &attr, threadFunc, &bo[i]))!=0){
             printf("err creating thread");
             return 0;
         }
+        //printf("%lu created; interval [%f; %f]\n", threads[i], bo[i].a, bo[i].b);
+        ncores++;
     }
-    bo[mCpu].a=a+(b-a)/n*(k);
-    bo[mCpu].b=a+(b-a)/n*(k+1);
+    if(k==-1) k=n-1;
+    borders* nb=malloc(sizeof(borders));
+    nb[0].a=a+(b-a)/n*(k);
+    nb[0].b=a+(b-a)/n*(k+1);
+    //printf("main interval [%f; %f]\n", nb[0].a, nb[0].b);
+
     //cores=getCpuTopology();
-    result=result+*((double*) threadFunc(&bo[mCpu]));
+    result=result+*((double*) threadFunc(&nb[0]));
     //int mainCpu=sched_getcpu();
     /*for(int i=0; i<n; i++){
        /* if(i==mainCpu){
@@ -135,7 +148,7 @@ int main(int argc, char* argv[]) {
     }*/
     double* ret[n];
     for(int i=0; i<n && n>1; i++){
-        if(i==mCpu) continue;
+        if(i==k) continue;
         pthread_join(threads[i], (void**) &ret[i]);
         result+=*ret[i];
     } /* Wait until thread is finished */
