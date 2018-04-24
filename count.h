@@ -10,7 +10,7 @@
 #include <zconf.h>
 
 #define PI 3.14159265359
-#define NEPS 5
+#define NEPS 7
 #define JMAX 40
 #define EPS 1*pow(10, -NEPS)
 #define JMAXP JMAX+1

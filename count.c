@@ -26,11 +26,11 @@ double qsimp(double (*func)(double), double a, double b) {
         st=trapzd(func,a,b,j, s);
         //printf("%d: %.3e %.3e\n",pthread_self(), st, ost);
         s=(4.0*st-ost)/3.0;
-        //printf("%d: CHECK %d s: %f os: %f | %f %f\n", pthread_self(), j, s, os, fabs(s - os), EPS * fabs(os));
+        //printf("%d: CHECK %d s: %f os: %f | %f %f\n", pthread_self(), j, s, os, fabs(s - os), EPS*fabs(os));
         if (j > 5) {
-            if (fabs(s - os) < EPS ||
+            if (fabs(s - os) < EPS*fabs(os) ||
                 (s == 0.0 && os == 0.0)) {
-                printf("qsimp took %d steps to reach eps\n", j);
+                //printf("qsimp took %d steps to reach eps\n", j);
                 return s;
             }
         }
@@ -38,6 +38,6 @@ double qsimp(double (*func)(double), double a, double b) {
         ost=st;
 
     }
-    //printf("---%d: EPSILON %f %f %e\n",pthread_self(), s, os, fabs(s-os));
+    printf("---%d: EPSILON %f %f %e\n",pthread_self(), s, os, fabs(s-os));
     return s;
 }

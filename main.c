@@ -96,8 +96,12 @@ int main(int argc, char* argv[]) {
     int n=input(argc, argv);
     if(!n) return -1;
     double a=0;
-    double b=100;
+    double b=1;
     int allcores=sysconf (_SC_NPROCESSORS_CONF);
+    if(n>allcores){
+        printf("Not enough cores, maximum is %d\n", allcores);
+        return -2;
+    }
     borders* bo=malloc(sizeof(borders)*allcores);
     double result=0;
     pthread_t threads[n];
@@ -105,17 +109,17 @@ int main(int argc, char* argv[]) {
     cpu_set_t mask;
     pthread_attr_init(&attr);
     int mCpu=sched_getcpu();
-    printf("MAIN: ID: %lu, CPU: %d\n", pthread_self(), mCpu);
+  //  printf("MAIN: ID: %lu, CPU: %d\n", pthread_self(), mCpu);
     int k=-1, ncores=0;
     for(int i=0; ncores<n-1 && i<allcores; i++){
-        printf("i: %d k: %d mCpu:%d\n",i,k, (mCpu=sched_getcpu()));
+        //printf("i: %d k: %d mCpu:%d\n",i,k, (mCpu=sched_getcpu()));
         if(i==(mCpu=sched_getcpu())){
             k=i; //number of intertval we integrate on mother thread
             //i++;
             continue;
         }
         //if(mCpu>=i)n--;
-        printf("i: %d k:%d mCpu:%d\n",i,k, mCpu);
+        //printf("i: %d k:%d mCpu:%d\n",i,k, mCpu);
 
         bo[i].a=a+(b-a)/n*i;
         bo[i].b=a+(b-a)/n*(i+1);
@@ -124,17 +128,17 @@ int main(int argc, char* argv[]) {
         pthread_attr_setaffinity_np(&attr, sizeof(cpu_set_t), &mask);
         long child;
         if((pthread_create(&threads[i], &attr, threadFunc, &bo[i]))!=0){
-            printf("err creating thread");
+            //printf("err creating thread");
             return 0;
         }
-        printf("%lu created; interval [%f; %f]\n", threads[i], bo[i].a, bo[i].b);
+        //printf("%lu created; interval [%f; %f]\n", threads[i], bo[i].a, bo[i].b);
         ncores++;
     }
     if(k==-1) k=n-1;
     borders* nb=malloc(sizeof(borders));
     nb[0].a=a+(b-a)/n*(k);
     nb[0].b=a+(b-a)/n*(k+1);
-    printf("main interval [%f; %f]\n", nb[0].a, nb[0].b);
+    //printf("main interval [%f; %f]\n", nb[0].a, nb[0].b);
 
     //cores=getCpuTopology();
     result=result+*((double*) threadFunc(&nb[0]));
