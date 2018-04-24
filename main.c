@@ -8,7 +8,7 @@ typedef struct borders{
 int* cores;
 
 double f(double x){
-    return 1/(x*x*(sin(x)+2)); //
+    return 1/(x*x*(2)); //
 }
 
 int* getCpuTopology() {
@@ -63,7 +63,7 @@ void* threadFunc(void* b){
     double FSimp=qsimp(fp, bord->a, bord->b);
     double * summ= malloc((sizeof(double)));
     *summ=FSimp;
-   // printf("ID: %lu, CPU: %d\n", pthread_self(), sched_getcpu());
+    printf("ID: %lu, CPU: %d\n", pthread_self(), sched_getcpu());
 
     return summ;
 }
@@ -94,44 +94,47 @@ int input(int argc, char** argv){
 
 int main(int argc, char* argv[]) {
     int n=input(argc, argv);
-    if(!n) return -1;
+    if(!n || n<1) return -1;
     double a=1;
     double b=100;
-    int allcores=sysconf (_SC_NPROCESSORS_CONF);
-    if(n>allcores){
-        printf("Not enough cores, maximum is %d\n", allcores);
-        return -2;
-    }
-    borders* bo=malloc(sizeof(borders)*allcores);
-    double result=0;
+    int k=-1;
+    double result = 0;
     pthread_t threads[n];
-    pthread_attr_t attr;
-    cpu_set_t mask;
-    pthread_attr_init(&attr);
-    int mCpu;
-  //  printf("MAIN: ID: %lu, CPU: %d\n", pthread_self(), mCpu);
-    int k=-1, ncores=0;
-    for(int i=0; ncores<n-1 && i<allcores; i++){
-        //printf("i: %d k: %d mCpu:%d\n",i,k, (mCpu=sched_getcpu()));
-        if(i==(mCpu=sched_getcpu())){
-            k=i; //number of intertval we integrate on mother thread
-            //i++;
-            continue;
+    if(n>1) {
+        int allcores = sysconf(_SC_NPROCESSORS_CONF);
+        if (n > allcores) {
+            printf("Not enough cores, maximum is %d\n", allcores);
+            return -2;
         }
-        //if(mCpu>=i)n--;
-        //printf("i: %d k:%d mCpu:%d\n",i,k, mCpu);
+        borders *bo = malloc(sizeof(borders) * allcores);
+        pthread_attr_t attr;
+        cpu_set_t mask;
+        pthread_attr_init(&attr);
+        int mCpu;
+        //  printf("MAIN: ID: %lu, CPU: %d\n", pthread_self(), mCpu);
+        int  ncores = 0;
+        for (int i = 0; ncores < n - 1 && i < allcores; i++) {
+            //printf("i: %d k: %d mCpu:%d\n",i,k, (mCpu=sched_getcpu()));
+            if (i == (mCpu = sched_getcpu())) {
+                k = i; //number of intertval we integrate on mother thread
+                //i++;
+                continue;
+            }
+            //if(mCpu>=i)n--;
+            //printf("i: %d k:%d mCpu:%d\n",i,k, mCpu);
 
-        bo[i].a=a+(b-a)/n*i;
-        bo[i].b=a+(b-a)/n*(i+1);
-        CPU_ZERO(&mask);
-        CPU_SET(i, &mask);
-        pthread_attr_setaffinity_np(&attr, sizeof(cpu_set_t), &mask);
-        if((pthread_create(&threads[i], &attr, threadFunc, &bo[i]))!=0){
-            //printf("err creating thread");
-            return 0;
+            bo[i].a = a + (b - a) / n * i;
+            bo[i].b = a + (b - a) / n * (i + 1);
+            CPU_ZERO(&mask);
+            CPU_SET(i, &mask);
+            pthread_attr_setaffinity_np(&attr, sizeof(cpu_set_t), &mask);
+            if ((pthread_create(&threads[i], &attr, threadFunc, &bo[i])) != 0) {
+                //printf("err creating thread");
+                return 0;
+            }
+            //printf("%lu created; interval [%f; %f]\n", threads[i], bo[i].a, bo[i].b);
+            ncores++;
         }
-        //printf("%lu created; interval [%f; %f]\n", threads[i], bo[i].a, bo[i].b);
-        ncores++;
     }
     if(k==-1) k=n-1;
     borders* nb=malloc(sizeof(borders));
@@ -149,7 +152,7 @@ int main(int argc, char* argv[]) {
         }
     }*/
     double* ret[n];
-    for(int i=0; i<n && n>1; i++){
+    for(int i=n-1; i>=0 && n>1; i--){
         if(i==k) continue;
         pthread_join(threads[i], (void**) &ret[i]);
         result+=*ret[i];
