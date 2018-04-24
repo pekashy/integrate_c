@@ -8,7 +8,7 @@ typedef struct borders{
 int* cores;
 
 double f(double x){
-    return x*x; //1- 0.041667 2- 0.291667
+    return 1/(x*x*(sin(x)+2)); //
 }
 
 int* getCpuTopology() {
@@ -95,8 +95,8 @@ int input(int argc, char** argv){
 int main(int argc, char* argv[]) {
     int n=input(argc, argv);
     if(!n) return -1;
-    double a=0;
-    double b=1;
+    double a=1;
+    double b=100;
     int allcores=sysconf (_SC_NPROCESSORS_CONF);
     if(n>allcores){
         printf("Not enough cores, maximum is %d\n", allcores);
@@ -108,7 +108,7 @@ int main(int argc, char* argv[]) {
     pthread_attr_t attr;
     cpu_set_t mask;
     pthread_attr_init(&attr);
-    int mCpu=sched_getcpu();
+    int mCpu;
   //  printf("MAIN: ID: %lu, CPU: %d\n", pthread_self(), mCpu);
     int k=-1, ncores=0;
     for(int i=0; ncores<n-1 && i<allcores; i++){
@@ -126,7 +126,6 @@ int main(int argc, char* argv[]) {
         CPU_ZERO(&mask);
         CPU_SET(i, &mask);
         pthread_attr_setaffinity_np(&attr, sizeof(cpu_set_t), &mask);
-        long child;
         if((pthread_create(&threads[i], &attr, threadFunc, &bo[i]))!=0){
             //printf("err creating thread");
             return 0;
