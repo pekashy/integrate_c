@@ -105,18 +105,17 @@ int main(int argc, char* argv[]) {
     cpu_set_t mask;
     pthread_attr_init(&attr);
     int mCpu=sched_getcpu();
-   // printf("MAIN: ID: %lu, CPU: %d\n", pthread_self(), mCpu);
-    //if(mCpu!=3)return 0;
+    printf("MAIN: ID: %lu, CPU: %d\n", pthread_self(), mCpu);
     int k=-1, ncores=0;
     for(int i=0; ncores<n-1 && i<allcores; i++){
-       // printf("i: %d k: %d mCpu:%d\n",i,k, (mCpu=sched_getcpu()));
+        printf("i: %d k: %d mCpu:%d\n",i,k, (mCpu=sched_getcpu()));
         if(i==(mCpu=sched_getcpu())){
             k=i; //number of intertval we integrate on mother thread
             //i++;
             continue;
         }
         //if(mCpu>=i)n--;
-        //printf("i: %d k:%d mCpu:%d\n",i,k, mCpu);
+        printf("i: %d k:%d mCpu:%d\n",i,k, mCpu);
 
         bo[i].a=a+(b-a)/n*i;
         bo[i].b=a+(b-a)/n*(i+1);
@@ -128,14 +127,14 @@ int main(int argc, char* argv[]) {
             printf("err creating thread");
             return 0;
         }
-        //printf("%lu created; interval [%f; %f]\n", threads[i], bo[i].a, bo[i].b);
+        printf("%lu created; interval [%f; %f]\n", threads[i], bo[i].a, bo[i].b);
         ncores++;
     }
     if(k==-1) k=n-1;
     borders* nb=malloc(sizeof(borders));
     nb[0].a=a+(b-a)/n*(k);
     nb[0].b=a+(b-a)/n*(k+1);
-    //printf("main interval [%f; %f]\n", nb[0].a, nb[0].b);
+    printf("main interval [%f; %f]\n", nb[0].a, nb[0].b);
 
     //cores=getCpuTopology();
     result=result+*((double*) threadFunc(&nb[0]));
