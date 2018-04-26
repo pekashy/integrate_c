@@ -38,7 +38,7 @@ cpu* getCpuTopology2(int* coreNum){
     int processor, coreId;
     int res = -1;
     while ((res = fscanf (cpuinfo_file, "processor : %d\ncore id : %d\n", &processor, &coreId)) == 2) {
-        printf("processor : %d\ncore id : %d\n", processor, coreId);
+      //  printf("processor : %d\ncore id : %d\n", processor, coreId);
         /*if(topology[coreId].nproces<0){
             topology[coreId].nproces=0;
             topology[coreId].busyProces=0;
@@ -60,13 +60,8 @@ cpu* getCpuTopology2(int* coreNum){
     return topology;
 }
 
-int getCpu(cpu* top, int ncores){
+int getCpu(cpu* top){
     int k=0, p=0;
-    //p=top[0].busyProces;
-    /*for(int i=0; i<ncores; i++){
-        if(top[i].busyProces<top[i].nproces) k=i;
-    }*/
-    //printf("staring k %d\n")
     for(int i=0; i<12; i++){
         if(top[i].busyProces<top[k].busyProces && top[i].nproces>0) k=i;
     }
@@ -78,8 +73,6 @@ int getCpu(cpu* top, int ncores){
         }
     }
     top[k].proces[p]=1;
-    //for(int i=0; i<ncores; i++) top[i].proces[p]=1;
-
     return p;
 }
 
@@ -97,7 +90,7 @@ void* threadFunc(void* b){
     double FSimp=qsimp(fp, bord->a, bord->b);
     double * summ= malloc((sizeof(double)));
     *summ=FSimp;
-    printf("ID: %lu, CPU: %d\n", pthread_self(), sched_getcpu());
+    //printf("ID: %lu, CPU: %d\n", pthread_self(), sched_getcpu());
     return summ;
 }
 
@@ -132,7 +125,7 @@ int main(int argc, char* argv[]) {
     int n=input(argc, argv);
     if(!n || n<1) return -1;
     double a=1;
-    double b=100;
+    double b=10000;
     int k=-1;
     double result = 0;
     pthread_t threads[n];
@@ -165,8 +158,8 @@ int main(int argc, char* argv[]) {
                 topology[mCore].busyProces++;
                 topology[mCore].proces[mCpu]=1;
             }
-            proc=getCpu(topology, ncores);
-            printf("\n%d \n", proc);
+            proc=getCpu(topology);
+            //printf("\n%d \n", proc);
             bo[i].a = a + (b - a) / n * i;
             bo[i].b = a + (b - a) / n * (i + 1);
             CPU_ZERO(&mask);
