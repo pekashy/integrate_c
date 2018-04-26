@@ -1,14 +1,61 @@
 #include "count.h"
+#include <string.h>
 
 typedef struct borders{
     double a;
     double b;
 } borders;
 
-int* cores;
+typedef struct cpu{
+    int id;
+    int cores[2];
+    int ncores;
+    int busycores;
+} cpu;
 
 double f(double x){
-    return 1/(x*x*(2)); //
+    return 1/(x*x*(2));
+}
+
+cpu* getCpuTopology2(){
+    const char cheatcode[] = "fgrep -e 'processor' -e 'core id' /proc/cpuinfo";
+    FILE* cpuinfo_file = popen (cheatcode, "r");
+    FILE* cores=popen("grep 'cpu cores' /proc/cpuinfo", "r");
+    if (!cpuinfo_file || !cores){
+        perror ("error opening cpuinfo file");
+        return NULL;
+    }
+    int coreNum=0;
+    fscanf(cores, "cpu cores       : %d", &coreNum);
+    if(coreNum<1){
+        printf("core num parsing error");
+        return NULL;
+    }
+    cpu* topology=malloc(coreNum*sizeof(cpu));
+    for(int a=0; a<coreNum; a++){
+        topology[a].ncores=0;
+        topology[a].busycores=0;
+        memset(topology[a].cores, -1, 2);
+    }
+    int processor, core_id;
+    int res = -1;
+
+    while ((res = fscanf (cpuinfo_file, "processor : %d\ncore id : %d\n", &processor, &core_id)) == 2) {
+        printf("processor : %d\ncore id : %d\n", processor, core_id);
+        topology[core_id/coreNum].cores[topology[core_id/coreNum].ncores]=processor; //TODO: WILL CAUSE BUGS ON OTHER CPUINFOS; DO NOT FORGET TO FIX!!!
+        topology[core_id/coreNum].ncores++;
+    }
+    if (res != EOF) {
+        perror ("fscanf #1");
+        return NULL;
+    }
+    errno = 0;
+    fclose (cpuinfo_file);
+    fclose (cores);
+    if (errno) {
+        perror ("closing error");
+        return NULL;
+    }
 }
 
 int* getCpuTopology() {
@@ -57,6 +104,8 @@ int* getCpuTopology() {
     return cores;
 }
 
+
+
 void* threadFunc(void* b){
     double (*fp) (double x)=f;
     borders* bord = (borders*) b;
@@ -93,6 +142,7 @@ int input(int argc, char** argv){
 }
 
 int main(int argc, char* argv[]) {
+    //return 0;
     int n=input(argc, argv);
     if(!n || n<1) return -1;
     double a=1;
@@ -101,6 +151,7 @@ int main(int argc, char* argv[]) {
     double result = 0;
     pthread_t threads[n];
     if(n>1) {
+        cpu* topology=getCpuTopology2();
         int allcores = sysconf(_SC_NPROCESSORS_CONF);
         if (n > allcores) {
             printf("Not enough cores, maximum is %d\n", allcores);
