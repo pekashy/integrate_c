@@ -20,31 +20,30 @@ double f(double x){
 cpu* getCpuTopology2(int* coreNum){
     const char cheatcode[] = "fgrep -e 'processor' -e 'core id' /proc/cpuinfo";
     FILE* cpuinfo_file = popen (cheatcode, "r");
-    FILE* cores=popen("grep 'cpu proces' /proc/cpuinfo", "r");
+    FILE* cores=popen("grep 'cpu cores' /proc/cpuinfo", "r");
     if (!cpuinfo_file || !cores){
         perror ("error opening cpuinfo file");
         return NULL;
     }
-    //int coreNum=0;
-    fscanf(cores, "cpu proces       : %d", coreNum);
+    fscanf(cores, "cpu cores       : %d", coreNum);
     if(*coreNum<1){
         printf("core num parsing error");
         return NULL;
     }
     cpu* topology=malloc(12*sizeof(cpu));
     for(int a=0; a<12; a++){
-        topology[a].nproces=-1;
-        topology[a].busyProces=-1;
-        memset(topology[a].proces, -1, 12);
+        topology[a].nproces=0;
+        topology[a].busyProces=0;
+        memset(topology[a].proces, -1, 12*sizeof(int));
     }
     int processor, coreId;
     int res = -1;
     while ((res = fscanf (cpuinfo_file, "processor : %d\ncore id : %d\n", &processor, &coreId)) == 2) {
         printf("processor : %d\ncore id : %d\n", processor, coreId);
-        if(topology[coreId].nproces<0){
+        /*if(topology[coreId].nproces<0){
             topology[coreId].nproces=0;
             topology[coreId].busyProces=0;
-        }
+        }*/
         topology[coreId].proces[processor]=0;
         topology[coreId].nproces++;
     }
@@ -159,6 +158,9 @@ int input(int argc, char** argv){
 
 int main(int argc, char* argv[]) {
     //return 0;
+    int ncores=0;
+    cpu* topology=getCpuTopology2(&ncores);
+    return 0;
     int n=input(argc, argv);
     if(!n || n<1) return -1;
     double a=1;
@@ -166,7 +168,7 @@ int main(int argc, char* argv[]) {
     int k=-1;
     double result = 0;
     pthread_t threads[n];
-    int ncores=0;
+    //int ncores=0;
     if(n>1) {
         cpu* topology=getCpuTopology2(&ncores);
         int allProcessors = sysconf(_SC_NPROCESSORS_CONF);
@@ -180,8 +182,9 @@ int main(int argc, char* argv[]) {
         pthread_attr_init(&attr);
         int mCpu=pthread_self(), mCore=sched_getcpu();
         topology[mCore].proces[mCpu]=1;
-        int  ncores = 0;
-        for (int i = 0; ncores < n - 1 && i < allProcessors; i++) {
+       // int  ncores = 0;
+
+        for (int i = 0; ncores < n - 1; i++) {
             if (i == (mCpu = sched_getcpu())) {
                 k = i; //number of intertval we integrate on mother thread
                 continue;
