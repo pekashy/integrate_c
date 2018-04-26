@@ -7,7 +7,6 @@ typedef struct borders{
 } borders;
 
 typedef struct cpu{
-    int id;
     int proces[12];
     int nproces;
     int busyProces;
@@ -63,20 +62,25 @@ cpu* getCpuTopology2(int* coreNum){
 
 int getCpu(cpu* top, int ncores){
     int k=0, p=0;
-    for(int i=0; i<ncores; i++){
+    //p=top[0].busyProces;
+    /*for(int i=0; i<ncores; i++){
         if(top[i].busyProces<top[i].nproces) k=i;
-    }
-    for(int i=0; i<ncores; i++){
+    }*/
+    //printf("staring k %d\n")
+    for(int i=0; i<12; i++){
         if(top[i].busyProces<top[k].busyProces && top[i].nproces>0) k=i;
     }
     top[k].busyProces++;
     for(int a=0; a<12; a++){
         if(top[k].proces[a]==0){
-            p=k;
+            p=a;
             break;
         }
     }
-    return top[k].proces[p];
+    top[k].proces[p]=1;
+    //for(int i=0; i<ncores; i++) top[i].proces[p]=1;
+
+    return p;
 }
 
 int getCore(cpu* top, int ncores, int proc){
@@ -162,6 +166,7 @@ int main(int argc, char* argv[]) {
                 topology[mCore].proces[mCpu]=1;
             }
             proc=getCpu(topology, ncores);
+            printf("\n%d \n", proc);
             bo[i].a = a + (b - a) / n * i;
             bo[i].b = a + (b - a) / n * (i + 1);
             CPU_ZERO(&mask);
