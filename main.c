@@ -8,42 +8,45 @@ typedef struct borders{
 
 typedef struct cpu{
     int id;
-    int cores[2];
-    int ncores;
-    int busycores;
+    int proces[12];
+    int nproces;
+    int busyProces;
 } cpu;
 
 double f(double x){
     return 1/(x*x*(2));
 }
 
-cpu* getCpuTopology2(){
+cpu* getCpuTopology2(int* coreNum){
     const char cheatcode[] = "fgrep -e 'processor' -e 'core id' /proc/cpuinfo";
     FILE* cpuinfo_file = popen (cheatcode, "r");
-    FILE* cores=popen("grep 'cpu cores' /proc/cpuinfo", "r");
+    FILE* cores=popen("grep 'cpu proces' /proc/cpuinfo", "r");
     if (!cpuinfo_file || !cores){
         perror ("error opening cpuinfo file");
         return NULL;
     }
-    int coreNum=0;
-    fscanf(cores, "cpu cores       : %d", &coreNum);
-    if(coreNum<1){
+    //int coreNum=0;
+    fscanf(cores, "cpu proces       : %d", coreNum);
+    if(*coreNum<1){
         printf("core num parsing error");
         return NULL;
     }
-    cpu* topology=malloc(coreNum*sizeof(cpu));
-    for(int a=0; a<coreNum; a++){
-        topology[a].ncores=0;
-        topology[a].busycores=0;
-        memset(topology[a].cores, -1, 2);
+    cpu* topology=malloc(12*sizeof(cpu));
+    for(int a=0; a<12; a++){
+        topology[a].nproces=-1;
+        topology[a].busyProces=-1;
+        memset(topology[a].proces, -1, 12);
     }
-    int processor, core_id;
+    int processor, coreId;
     int res = -1;
-
-    while ((res = fscanf (cpuinfo_file, "processor : %d\ncore id : %d\n", &processor, &core_id)) == 2) {
-        printf("processor : %d\ncore id : %d\n", processor, core_id);
-        topology[core_id/coreNum].cores[topology[core_id/coreNum].ncores]=processor; //TODO: WILL CAUSE BUGS ON OTHER CPUINFOS; DO NOT FORGET TO FIX!!!
-        topology[core_id/coreNum].ncores++;
+    while ((res = fscanf (cpuinfo_file, "processor : %d\ncore id : %d\n", &processor, &coreId)) == 2) {
+        printf("processor : %d\ncore id : %d\n", processor, coreId);
+        if(topology[coreId].nproces<0){
+            topology[coreId].nproces=0;
+            topology[coreId].busyProces=0;
+        }
+        topology[coreId].proces[processor]=0;
+        topology[coreId].nproces++;
     }
     if (res != EOF) {
         perror ("fscanf #1");
@@ -56,6 +59,21 @@ cpu* getCpuTopology2(){
         perror ("closing error");
         return NULL;
     }
+}
+
+int getCpu(cpu* top, int ncores){
+    int k=0, p=0;
+    for(int i=0; i<ncores; i++){
+        if(top[i].busyProces<top[k].busyProces && top[i].nproces>0) k=i;
+    }
+    top[k].busyProces++;
+    for(int a=0; a<12; a++){
+        if(top[k].proces[a]==0){
+            p=k;
+            break;
+        }
+    }
+    return top[k].proces[p];
 }
 
 int* getCpuTopology() {
@@ -105,7 +123,6 @@ int* getCpuTopology() {
 }
 
 
-
 void* threadFunc(void* b){
     double (*fp) (double x)=f;
     borders* bord = (borders*) b;
@@ -113,7 +130,6 @@ void* threadFunc(void* b){
     double * summ= malloc((sizeof(double)));
     *summ=FSimp;
     printf("ID: %lu, CPU: %d\n", pthread_self(), sched_getcpu());
-
     return summ;
 }
 
@@ -150,37 +166,33 @@ int main(int argc, char* argv[]) {
     int k=-1;
     double result = 0;
     pthread_t threads[n];
+    int ncores=0;
     if(n>1) {
-        cpu* topology=getCpuTopology2();
-        int allcores = sysconf(_SC_NPROCESSORS_CONF);
-        if (n > allcores) {
-            printf("Not enough cores, maximum is %d\n", allcores);
+        cpu* topology=getCpuTopology2(&ncores);
+        int allProcessors = sysconf(_SC_NPROCESSORS_CONF);
+        if (n > allProcessors) {
+            printf("Not enough proces, maximum is %d\n", allProcessors);
             return -2;
         }
-        borders *bo = malloc(sizeof(borders) * allcores);
+        borders *bo = malloc(sizeof(borders) * allProcessors);
         pthread_attr_t attr;
         cpu_set_t mask;
         pthread_attr_init(&attr);
-        int mCpu;
-        //  printf("MAIN: ID: %lu, CPU: %d\n", pthread_self(), mCpu);
+        int mCpu=pthread_self(), mCore=sched_getcpu();
+        topology[mCore].proces[mCpu]=1;
         int  ncores = 0;
-        for (int i = 0; ncores < n - 1 && i < allcores; i++) {
-            //printf("i: %d k: %d mCpu:%d\n",i,k, (mCpu=sched_getcpu()));
+        for (int i = 0; ncores < n - 1 && i < allProcessors; i++) {
             if (i == (mCpu = sched_getcpu())) {
                 k = i; //number of intertval we integrate on mother thread
-                //i++;
                 continue;
             }
-            //if(mCpu>=i)n--;
-            //printf("i: %d k:%d mCpu:%d\n",i,k, mCpu);
-
             bo[i].a = a + (b - a) / n * i;
             bo[i].b = a + (b - a) / n * (i + 1);
             CPU_ZERO(&mask);
             CPU_SET(i, &mask);
             pthread_attr_setaffinity_np(&attr, sizeof(cpu_set_t), &mask);
             if ((pthread_create(&threads[i], &attr, threadFunc, &bo[i])) != 0) {
-                //printf("err creating thread");
+                printf("err creating thread");
                 return 0;
             }
             //printf("%lu created; interval [%f; %f]\n", threads[i], bo[i].a, bo[i].b);
@@ -192,16 +204,7 @@ int main(int argc, char* argv[]) {
     nb[0].a=a+(b-a)/n*(k);
     nb[0].b=a+(b-a)/n*(k+1);
     //printf("main interval [%f; %f]\n", nb[0].a, nb[0].b);
-
-    //cores=getCpuTopology();
     result=result+*((double*) threadFunc(&nb[0]));
-    //int mainCpu=sched_getcpu();
-    /*for(int i=0; i<n; i++){
-       /* if(i==mainCpu){
-            //i++;
-            continue;
-        }
-    }*/
     double* ret[n];
     for(int i=n-1; i>=0 && n>1; i--){
         if(i==k) continue;
