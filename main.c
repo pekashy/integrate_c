@@ -1,5 +1,8 @@
 #include "count.h"
 #include <string.h>
+#include <search.h>
+#include <sys/sysinfo.h>
+
 
 typedef struct borders{
     double a;
@@ -8,6 +11,7 @@ typedef struct borders{
 
 typedef struct cpu{
     int proces[12];
+   // int* links[2];
     int nproces;
     int busyProces;
 } cpu;
@@ -16,7 +20,7 @@ double f(double x){
     return 1/(x*x*(2));
 }
 
-cpu* getCpuTopology2(int* coreNum){
+cpu* getCpuTopology2(int* coreNum, int procsNum){
     const char cheatcode[] = "fgrep -e 'processor' -e 'core id' /proc/cpuinfo";
     FILE* cpuinfo_file = popen (cheatcode, "r");
     FILE* cores=popen("grep 'cpu cores' /proc/cpuinfo", "r");
@@ -33,7 +37,7 @@ cpu* getCpuTopology2(int* coreNum){
     for(int a=0; a<12; a++){
         topology[a].nproces=0;
         topology[a].busyProces=0;
-        memset(topology[a].proces, -1, 12*sizeof(int));
+        memset(topology[a].proces, -1, procsNum*sizeof(int));
     }
     int processor, coreId;
     int res = -1;
@@ -44,6 +48,7 @@ cpu* getCpuTopology2(int* coreNum){
             topology[coreId].busyProces=0;
         }*/
         topology[coreId].proces[processor]=0;
+       // topology->links[topology->nproces]=&topology[coreId].proces[processor];
         topology[coreId].nproces++;
     }
     if (res != EOF) {
@@ -60,13 +65,17 @@ cpu* getCpuTopology2(int* coreNum){
     return topology;
 }
 
-int getCpu(cpu* top){
+int getCpu(cpu* top, int procsNum){
     int k=0, p=0;
     for(int i=0; i<12; i++){
         if(top[i].busyProces<top[k].busyProces && top[i].nproces>0) k=i;
     }
+    //if(top->links[0])
+    //lfind(0, top[i].busyProces);
     top[k].busyProces++;
-    for(int a=0; a<12; a++){
+    //lfind(0, top[k].proces, 12)
+    //if(!top[k].links[0])
+    for(int a=0; a<procsNum; a++){
         if(top[k].proces[a]==0){
             p=a;
             break;
@@ -119,29 +128,27 @@ int input(int argc, char** argv){
 }
 
 int main(int argc, char* argv[]) {
-    //return 0;
-    //int ncores=0;
-    //cpu* topology=getCpuTopology2(&ncores);
     int n=input(argc, argv);
     if(!n || n<1) return -1;
-    double a=1;
-    double b=10000;
+    double a=25000;
+    double b=100000;
     int k=-1;
     double result = 0;
     pthread_t threads[n];
     int ncores=0;
+    borders *bo = malloc(sizeof(borders) * n);
+
     if(n>1) {
-        cpu* topology=getCpuTopology2(&ncores);
+        int nprocs = get_nprocs();
+        cpu* topology=getCpuTopology2(&ncores, nprocs);
         if(!topology){
             printf("cpu topology parsing error");
             return 0;
         }
-        int allProcessors = sysconf(_SC_NPROCESSORS_CONF);
-        if (n > allProcessors) {
-            printf("Not enough proces, maximum is %d\n", allProcessors);
+        if (n > nprocs) {
+            printf("Not enough proces, maximum is %d\n", nprocs);
             return -2;
         }
-        borders *bo = malloc(sizeof(borders) * 12);
         pthread_attr_t attr;
         cpu_set_t mask;
         pthread_attr_init(&attr);
@@ -150,7 +157,7 @@ int main(int argc, char* argv[]) {
         topology[mCore].proces[mCpu]=1;
         topology[mCore].busyProces++;
         int proc;
-        for (int i = 0; n>1 && i<allProcessors-1; i++) {
+        for (int i = 0; n>1 && i<nprocs-1; i++) {
             if (mCpu != sched_getcpu()){
                 topology[mCore].proces[mCpu]=0;
                 topology[mCore].busyProces--;
@@ -158,7 +165,7 @@ int main(int argc, char* argv[]) {
                 topology[mCore].busyProces++;
                 topology[mCore].proces[mCpu]=1;
             }
-            proc=getCpu(topology);
+            proc=getCpu(topology, nprocs);
             //printf("\n%d \n", proc);
             bo[i].a = a + (b - a) / n * i;
             bo[i].b = a + (b - a) / n * (i + 1);
@@ -174,10 +181,9 @@ int main(int argc, char* argv[]) {
         }
     }
     borders* nb=malloc(sizeof(borders));
-    nb[0].a=a+(b-a)/n*(n-1);
-    nb[0].b=a+(b-a)/n*(n);
-    //printf("main interval [%f; %f]\n", nb[0].a, nb[0].b);
-    result=result+*((double*) threadFunc(&nb[0]));
+    bo[n-1].a=a+(b-a)/n*(n-1);
+    bo[n-1].b=a+(b-a)/n*(n);
+    result=result+*((double*) threadFunc(&bo[n-1]));
     double* ret[n];
     for(int i=n-2; i>=0 && n>1; i--){
         if(!threads[i]) continue;
