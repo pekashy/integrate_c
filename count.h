@@ -1,5 +1,4 @@
 #define _GNU_SOURCE
-
 #include <stdlib.h>
 #include <pthread.h>
 #include <stdio.h>
@@ -8,8 +7,6 @@
 #include <sched.h>
 #include <errno.h>
 #include <zconf.h>
-
-#define PI 3.14159265359
 #define NEPS 7
 #define JMAX 40
 #define EPS 1*pow(10, -NEPS)
