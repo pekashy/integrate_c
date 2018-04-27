@@ -129,6 +129,11 @@ int main(int argc, char* argv[]) {
                 bo[i].b = a + (b - a) / n * (i + 1);
 
                 if (processor == sched_getcpu()) {//works with first
+                    if(processor==mainP){ //the process was taken by main from the begining
+                        queue[s] = i;
+                        s++;
+                        continue;
+                    }
                     CPU_ZERO(&mask);
                     CPU_SET(mainP, &mask); //sending thread to the last main location
                     pthread_attr_setaffinity_np(&attr, sizeof(cpu_set_t), &mask);
@@ -158,17 +163,19 @@ int main(int argc, char* argv[]) {
                 }
                 i++;
             } else if (s > 0) { //running stored in queue
+                printf("%d\n", s);
                 if (processor == sched_getcpu()) {//main thread changed its location
                     CPU_ZERO(&mask);
                     CPU_SET(mainP, &mask); //sending thread to the last main location
                     pthread_attr_setaffinity_np(&attr, sizeof(cpu_set_t), &mask);
-                    if ((pthread_create(&threads[s], &attr, threadFunc, &bo[i])) != 0) {
+                    if ((pthread_create(&threads[s], &attr, threadFunc, &bo[s])) != 0) {//sending sth from the queue
                         printf("err creating thread");
                         return 0;
                     }
                     procs[processor].loaded = 1;//exchange current for main, load is the same for both
                     cores[coreId].load++;
                     mainP = sched_getcpu();
+                    queue[s]=-1;
                     s--;
                     continue;
                 }
@@ -176,12 +183,13 @@ int main(int argc, char* argv[]) {
                     CPU_ZERO(&mask);
                     CPU_SET(processor, &mask);
                     pthread_attr_setaffinity_np(&attr, sizeof(cpu_set_t), &mask);
-                    if ((pthread_create(&threads[s], &attr, threadFunc, &bo[i])) != 0) {
+                    if ((pthread_create(&threads[s], &attr, threadFunc, &bo[s])) != 0) {//sending sth from the queue
                         printf("err creating thread");
                         return 0;
                     }
                     procs[processor].loaded = 1;
                     cores[coreId].load++;
+                    queue[s]=-1;
                     s--;
                 }
             }
@@ -199,17 +207,18 @@ int main(int argc, char* argv[]) {
         }
 
         //run left in queue
-
-        for (int b = 0; b < coreIdMax && s > 0; b++) { //all should have load at least 1 now
-            if (!cores[b].procs[0]) continue;
-            coreId = b;
-            processor = cores[b].procs[cores[b].load][s].id;
-
+        for (int q = 0; q < coreIdMax && s > 0; q++) { //all should have load at least 1 now
+            if (!cores[q].procs[0]) continue; //no core with this id
+            if(cores[q].load==2) continue; //all core is taken
+            coreId = q;
+            //processor = cores[q].procs[cores[q].load][s].id;
+            if(!cores[q].procs[0]->loaded) processor=cores[q].procs[0]->id;
+            else processor=cores[q].procs[1]->id;
             if (processor == sched_getcpu()) {//main thread changed its location
                 CPU_ZERO(&mask);
                 CPU_SET(mainP, &mask); //sending thread to the last main location
                 pthread_attr_setaffinity_np(&attr, sizeof(cpu_set_t), &mask);
-                if ((pthread_create(&threads[s], &attr, threadFunc, &bo[i])) != 0) {
+                if ((pthread_create(&threads[s], &attr, threadFunc, &bo[s])) != 0) {
                     printf("err creating thread");
                     return 0;
                 }
@@ -219,18 +228,17 @@ int main(int argc, char* argv[]) {
                 s--;
                 continue;
             }
-            if (cores[b].load < 2) {
-                CPU_ZERO(&mask);
-                CPU_SET(processor, &mask);
-                pthread_attr_setaffinity_np(&attr, sizeof(cpu_set_t), &mask);
-                if ((pthread_create(&threads[s], &attr, threadFunc, &bo[i])) != 0) {
-                    printf("err creating thread");
-                    return 0;
-                }
-                procs[processor].loaded = 1;
-                cores[coreId].load++;
-                s--;
+            CPU_ZERO(&mask);
+            CPU_SET(processor, &mask);
+            pthread_attr_setaffinity_np(&attr, sizeof(cpu_set_t), &mask);
+            if ((pthread_create(&threads[s], &attr, threadFunc, &bo[s])) != 0) {
+                printf("err creating thread");
+                return 0;
             }
+            procs[processor].loaded = 1;
+            cores[coreId].load++;
+            s--;
+
         }
     }
     bo[n-1].a=a+(b-a)/n*(n-1);
