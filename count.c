@@ -30,7 +30,7 @@ double qsimp(double (*func)(double), double a, double b) {
         if (j > 5) {
             if (fabs(s - os) < EPS*fabs(os) ||
                 (s == 0.0 && os == 0.0)) {
-                printf("qsimp took %d steps to reach eps on [%f; %f]\n", j, a, b);
+                //printf("qsimp took %d steps to reach eps on [%f; %f]\n", j, a, b);
                 return s;
             }
         }
