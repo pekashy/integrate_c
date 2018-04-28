@@ -17,7 +17,7 @@ typedef struct cpu{
 } cpu;
 
 double f(double x){
-    return 1/(x*x*(2));
+    return 1/(sin(x)+2);
 }
 
 cpu* getCpuTopology2(int* coreNum, int procsNum){
@@ -130,8 +130,8 @@ int input(int argc, char** argv){
 int main(int argc, char* argv[]) {
     int n=input(argc, argv);
     if(!n || n<1) return -1;
-    double a=25000;
-    double b=100000;
+    double a=1;
+    double b=1000000;
     int k=-1;
     double result = 0;
     pthread_t threads[n];
