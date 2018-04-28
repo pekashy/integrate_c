@@ -154,6 +154,12 @@ int main(int argc, char* argv[]) {
     pthread_t threads[n];
     int ncores=0;
     borders *bo = malloc(sizeof(borders) * n);
+    pthread_attr_t attr;
+    cpu_set_t mask;
+    pthread_attr_init(&attr);
+    CPU_ZERO (&mask);
+    CPU_SET (sched_getcpu(), &mask);
+    pthread_setaffinity_np (pthread_self(), sizeof (cpu_set_t), &mask);
 
     int nprocs = get_nprocs();
     cpu *top = getCpuTopology2(&ncores, nprocs);
@@ -165,13 +171,12 @@ int main(int argc, char* argv[]) {
         printf("Not enough proces, maximum is %d\n", nprocs);
         return -2;
     }*/
-    pthread_attr_t attr;
-    cpu_set_t mask;
-    pthread_attr_init(&attr);
+
 
     int mCpu = sched_getcpu();
     top->procs[mCpu].load++;
     top->cores[top->procs[mCpu].aff].load++;
+
     printf("MAIN ID: %lu, CPU: %d\n", pthread_self(), sched_getcpu());
     int proc;
     for (int i = 0; n > 1 && i < n - 1; i++) {
@@ -196,7 +201,6 @@ int main(int argc, char* argv[]) {
         //ncores++;
     }
 
-    borders* nb=malloc(sizeof(borders));
     bo[n-1].a=a+(b-a)/n*(n-1);
     bo[n-1].b=a+(b-a)/n*(n);
     result=result+*((double*) threadFunc(&bo[n-1]));
