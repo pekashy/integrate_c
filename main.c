@@ -67,7 +67,7 @@ cpu* getCpuTopology2(int* coreIdMax, int procsNum) {
     for (int g = 0; g < procsNum; g++) {//can be removed assuming we have hyperthr
         procs[g].id = g;
         procs[g].load = 0;
-        procs[g].aff = NULL;
+        procs[g].aff = -1;
     }
     int processor, coreId;
     int res = -1;
@@ -145,6 +145,12 @@ int input(int argc, char** argv){
     return (int) val;
 }
 
+void* burst(){
+    while(1){
+        sin(1232332/2134343);
+    }
+}
+
 int main(int argc, char* argv[]) {
     int n=input(argc, argv);
     if(!n || n<1) return -1;
@@ -190,6 +196,7 @@ int main(int argc, char* argv[]) {
         proc = getCpu(top, ncores, n, nprocs);
         bo[i].a = a + (b - a) / n * i;
         bo[i].b = a + (b - a) / n * (i + 1);
+
         CPU_ZERO(&mask);
         CPU_SET(proc, &mask);
         pthread_attr_setaffinity_np(&attr, sizeof(cpu_set_t), &mask);
@@ -200,11 +207,29 @@ int main(int argc, char* argv[]) {
        // printf("%lu created; interval [%f; %f]\n", threads[i], bo[i].a, bo[i].b);
         //ncores++;
     }
+    pthread_t thre[nprocs+1];
+    pthread_attr_t attr2;
+    cpu_set_t mask2;
+    pthread_attr_init(&attr2);
+
+    if(n<nprocs){
+        for(int i=0; i<nprocs; i++){
+            if(top->procs[i].aff==-1) continue;
+            if(!top->procs[i].load){
+                CPU_ZERO(&mask2);
+                CPU_SET(top->procs[i].id, &mask2);
+                pthread_attr_setaffinity_np(&attr2, sizeof(cpu_set_t), &mask2);
+                pthread_create(&thre[i], &attr2, burst(), NULL);
+                printf("BURSTING %d\n", top->procs[i].id);
+            }
+        }
+    }
 
     bo[n-1].a=a+(b-a)/n*(n-1);
     bo[n-1].b=a+(b-a)/n*(n);
     result=result+*((double*) threadFunc(&bo[n-1]));
     double* ret[n];
+
     for(int i=n-2; i>=0 && n>1; i--){
         if(!threads[i]) continue;
         pthread_join(threads[i], (void**) &ret[i]);
