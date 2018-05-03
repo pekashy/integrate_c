@@ -21,15 +21,14 @@ double qsimp(double (*func)(double), double a, double b) {
     int j;
     double s,st,ost,os;
     ost=os=0;
-    //printf("LOL %.3e %.3e\n",a,b);
+   // printf("LOL %.3e %.3e\n",a,b);
     for (j=1;j<=JMAX;j++) {
         st=trapzd(func,a,b,j, s);
-        //printf("%d: %.3e %.3e\n",pthread_self(), st, ost);
+        //printf("%lu: %d\n",pthread_self(), sched_getcpu());
         s=(4.0*st-ost)/3.0;
-        //printf("%d: CHECK %d s: %f os: %f | %f %f\n", pthread_self(), j, s, os, fabs(s - os), EPS*fabs(os));
+        //printf("%lu: CHECK %d s: %f os: %f | %f %f\n", pthread_self(), j, s, os, fabs(s - os), EPS*fabs(os));
         if (j > 5) {
-            if (fabs(s - os) < EPS*fabs(os) ||
-                (s == 0.0 && os == 0.0)) {
+            if (fabs(s - os) < EPS*fabs(os) || (s == 0.0 && os == 0.0)) {
                 printf("qsimp took %d steps to reach eps on [%f; %f]\n", j, a, b);
                 return s;
             }
