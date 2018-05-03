@@ -1,5 +1,4 @@
 #define _GNU_SOURCE
-
 #include <stdlib.h>
 #include <pthread.h>
 #include <stdio.h>
@@ -8,12 +7,14 @@
 #include <sched.h>
 #include <errno.h>
 #include <zconf.h>
+#include <sys/sysinfo.h>
 
 #define PI 3.14159265359
-#define NEPS 7
-#define JMAX 40
+#define NEPS 4
+#define JMAX 15
 #define EPS 1*pow(10, -NEPS)
 #define JMAXP JMAX+1
 #define K 5
 
 double qsimp(double (*func)(double), double a, double b);
+double trapzd(double (*func)(double), double a, double b, int n, double s);

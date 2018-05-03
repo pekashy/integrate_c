@@ -1,6 +1,6 @@
 CC:= gcc
-CFLAGS = -g -pg -Wall# -g for debug, -O2 for optimise and -Wall additional messages
-LFLAGS = -pthread -lm
+CFLAGS = -g -pg -fprofile-arcs -ftest-coverage -Wall# -g for debug, -O2 for optimise and -Wall additional messages
+LFLAGS = -pthread -lm --coverage
 SOURCES = count.c main.c
 OBJECTS = count.o main.o
 EXECUTABLE = run
