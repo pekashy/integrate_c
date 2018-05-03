@@ -2,6 +2,7 @@
 #include <string.h>
 #include <search.h>
 #include <sys/sysinfo.h>
+#include <fcntl.h>
 
 
 typedef struct borders{
@@ -33,7 +34,7 @@ typedef struct cpu{
 } cpu;
 
 double f(double x){
-    return x*x/(sin(x*x)+2);
+    return 1/(x*x+25);
 }
 
 cpu* getCpuTopology2(int* coreIdMax, int procsNum) {
@@ -110,13 +111,24 @@ int getCpu(cpu* top, int maxCoreId, int n, int procNum){
 }
 
 void* threadFunc(void* b){
-    //printf("ID: %lu, CPU: %d\n", pthread_self(), sched_getcpu());
+    printf("ID: %lu, CPU: %d\n", pthread_self(), sched_getcpu());
+    //usleep(10000);
     double (*fp) (double x)=f;
     borders* bord = (borders*) b;
-    double FSimp=qsimp(fp, bord->a, bord->b);
-    double * summ= malloc((sizeof(double)));
-    *summ=FSimp;
-    printf("ID: %lu, CPU: %d\n", pthread_self(), sched_getcpu());
+    //double FSimp=qsimp(fp, bord->a, bord->b);
+    double * summ;
+    summ= malloc((sizeof(double)));
+    double ftrp=0;
+    int count=0;
+    clock_t t;
+    t = clock();
+
+    for(double i=bord->a+EPS; i<bord->b; i+=EPS){
+        ftrp+=0.5*(fp(i-EPS)+fp(i))*(EPS);
+        count++;
+    }
+    *summ=ftrp;
+    printf("ID: %lu, CPU: %d steps: %d time %e\n", pthread_self(), sched_getcpu(), count, (((double) (clock() - t)) / CLOCKS_PER_SEC));
 
     return summ;
 }
@@ -145,29 +157,37 @@ int input(int argc, char** argv){
     return (int) val;
 }
 
-void* burst(){
-    while(1){
-        sin(1232332/2134343);
+/*void* burst(){
+    double (*fp)()=&f;
+
+    //sleep(1);
+    for(int i=1; i<100; i++){
+        //usleep(1000);
+        qsimp(fp, 1, 10000);
+        //printf("GGTRGR\n");
     }
-}
+    printf("         BURST_ID: %lu, CPU: %d\n", pthread_self(), sched_getcpu());
+
+}*/
 
 int main(int argc, char* argv[]) {
     int n=input(argc, argv);
     if(!n || n<1) return -1;
     double a=1;
-    double b=100;
+    double b=1000;
     double result = 0;
     pthread_t threads[n];
     int ncores=0;
     borders *bo = malloc(sizeof(borders) * n);
     pthread_attr_t attr;
     cpu_set_t mask;
-    pthread_attr_init(&attr);
+    pthread_attr_init(&attr); //TODO: create n
+
+    int nprocs = get_nprocs();
     CPU_ZERO (&mask);
     CPU_SET (sched_getcpu(), &mask);
     pthread_setaffinity_np (pthread_self(), sizeof (cpu_set_t), &mask);
 
-    int nprocs = get_nprocs();
     cpu *top = getCpuTopology2(&ncores, nprocs);
     if (!top) {
         printf("cpu topology parsing error");
@@ -182,7 +202,7 @@ int main(int argc, char* argv[]) {
     int mCpu = sched_getcpu();
     top->procs[mCpu].load++;
     top->cores[top->procs[mCpu].aff].load++;
-
+    //FILE* df=fopen("debug.txt", "w");
     printf("MAIN ID: %lu, CPU: %d\n", pthread_self(), sched_getcpu());
     int proc;
     for (int i = 0; n > 1 && i < n - 1; i++) {
@@ -204,36 +224,64 @@ int main(int argc, char* argv[]) {
             printf("err creating thread");
             return 0;
         }
-       // printf("%lu created; interval [%f; %f]\n", threads[i], bo[i].a, bo[i].b);
+        printf("%lu created; interval [%f; %f]\n", threads[i], bo[i].a, bo[i].b);
         //ncores++;
     }
-    pthread_t thre[nprocs+1];
-    pthread_attr_t attr2;
-    cpu_set_t mask2;
-    pthread_attr_init(&attr2);
-
-    if(n<nprocs){
-        for(int i=0; i<nprocs; i++){
-            if(top->procs[i].aff==-1) continue;
-            if(!top->procs[i].load){
-                CPU_ZERO(&mask2);
-                CPU_SET(top->procs[i].id, &mask2);
-                pthread_attr_setaffinity_np(&attr2, sizeof(cpu_set_t), &mask2);
-                pthread_create(&thre[i], &attr2, burst(), NULL);
-                printf("BURSTING %d\n", top->procs[i].id);
-            }
-        }
-    }
+    pthread_t thre[nprocs];
+    //pthread_attr_t attr2;
+    //cpu_set_t mask2;
+    //pthread_attr_init(&attr);
 
     bo[n-1].a=a+(b-a)/n*(n-1);
     bo[n-1].b=a+(b-a)/n*(n);
+    borders *bb = malloc(sizeof(borders));
+    bb[0].a=a;
+    bb[0].b=a+(b-a)/(n*0.3);
+
+
+
+
+    if(n<nprocs){
+        for(int i=n; i<nprocs; i++){
+            proc = getCpu(top, ncores, nprocs, nprocs);
+            CPU_ZERO(&mask);
+            CPU_SET(proc, &mask);
+            pthread_attr_setaffinity_np(&attr, sizeof(cpu_set_t), &mask);
+            if ((pthread_create(&thre[i-n], &attr, threadFunc, &bb[0])) != 0) {
+                printf("err creating thread");
+                return 0;
+            }
+            //printf("%lu created; interval [%f; %f]\n", threads[i], bo[i].a, bo[i].b);
+            printf("BURSTING %d\n", proc);
+        }
+    }
+
     result=result+*((double*) threadFunc(&bo[n-1]));
     double* ret[n];
 
-    for(int i=n-2; i>=0 && n>1; i--){
+   for(int i=n-2; i>=0 && n>1; i--){
         if(!threads[i]) continue;
         pthread_join(threads[i], (void**) &ret[i]);
         result+=*ret[i];
+    } /* Wait until thread is finished */
+    /*struct timespec t;
+    t.tv_nsec=100;
+    t.tv_sec=0;
+    int k=n-1;
+    int d;
+    for(int i=n-2; i>=0 && n>1 ; i--){
+        if(!threads[i]){
+            continue;
+        }
+        if(!(d=pthread_timedjoin_np(threads[i], (void**) &ret[i], &t))){
+            t.tv_nsec=100;
+            t.tv_sec=0;
+        }
+        if(d==0){
+            result+=*ret[i];
+            k--;
+        }
+        if(i==0 && k>0) i=n-1;
     } /* Wait until thread is finished */
     printf("%e\n", result);
     return 0;
