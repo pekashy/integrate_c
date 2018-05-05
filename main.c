@@ -8,8 +8,8 @@
 #include <sys/sysinfo.h>
 #include <string.h>
 #include <limits.h>
-#define EPS 1.e-4
-
+#define EPS 1.e-5
+#define FUNC 1/(x*x+25)
 typedef struct borders{
     double a;
     double b;
@@ -43,8 +43,9 @@ void* threadFunc(void* b){
     summ= malloc((sizeof(double)));
     int n=(int) ((bord->b-bord->a)/EPS);
     int count=0;
-    for(double i=bord->a+EPS; count<n; count++){
-        ftrp+=f(i)*(EPS);
+    for(double x=bord->a+EPS; count<n; count++){
+        ftrp+=FUNC*(EPS);
+        x+=EPS;
     }
     *summ=ftrp;
     return summ;
