@@ -37,6 +37,6 @@ double qsimp(double (*func)(double), double a, double b) {
         ost=st;
 
     }
-    printf("---%d: EPSILON %f %f %e\n",pthread_self(), s, os, fabs(s-os));
+    //printf("---%d: EPSILON %f %f %e\n",pthread_self(), s, os, fabs(s-os));
     return s;
 }

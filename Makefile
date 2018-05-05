@@ -13,7 +13,7 @@ build: $(SOURCES)
 link: $(EXECUTABLE)
 
 $(EXECUTABLE): $(OBJECTS)
-	$(CC) $(LFLAGS) -o $@ $(OBJECTS)
+	$(CC) -o $@ $(OBJECTS) $(LFLAGS)
 
 $(SOURCES):
 	$(CC) $(CFLAGS) -o $@ -c $< -MD

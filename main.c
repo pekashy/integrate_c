@@ -163,9 +163,8 @@ int main(int argc, char* argv[]) {
     borders *bb = malloc(sizeof(borders));
     bb[0].a=a;
     bb[0].b=a+(b-a)/(n*0.3);
-
     CPU_ZERO (&mask);
-    CPU_SET (sched_getcpu(), &mask);
+    CPU_SET (0, &mask);
     pthread_setaffinity_np (pthread_self(), sizeof (cpu_set_t), &mask);
     int mCpu = sched_getcpu();
     top->procs[mCpu].load++;
