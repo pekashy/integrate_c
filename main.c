@@ -35,6 +35,8 @@ double f(double x){
 }
 
 void* threadFunc(void* b){
+    printf("ID: %lu, CPU: %d\n", pthread_self(), sched_getcpu());
+    sched_yield();
     double (*fp) (double x)=f;
     borders* bord = (borders*) b;
     double * summ;
@@ -100,16 +102,6 @@ int main(int argc, char* argv[]) {
     proc *procs = malloc(sizeof(proc) * procNum);
 
     cpu* top = malloc(sizeof(cpu));
-    for (int g = 0; g <= coreIdMax; g++) {
-        cores[g].procs[0] = NULL;
-        cores[g].procs[1] = NULL;
-        cores[g].load = 0;
-    }
-    for (int g = 0; g <= procNum; g++) {//can be removed assuming we have hyperthr
-        procs[g].id = g;
-        procs[g].load = 0;
-        procs[g].aff = -1;
-    }
     int processor, coreId;
     int res = -1;
     borders *bo = malloc(sizeof(borders) * n);
@@ -195,12 +187,12 @@ int main(int argc, char* argv[]) {
         return NULL;
     }
     errno = 0;
-    bo[i].a = a + (b - a) / n * i;
-    bo[i].b = a + (b - a) / n * (i + 1);
+    bo[0].a = a + (b - a) / n * 0;
+    bo[0].b = a + (b - a) / n * (0 + 1);
 
     result=result+*((double*) threadFunc(&bo[n-1]));
     double* ret[n];
-    for(int i=n-2; i>=0 && n>1; i--){
+    /*for(int i=n-2; i>=0 && n>1; i--){
         if(!threads[i]) continue;
         pthread_join(threads[i], (void**) &ret[i]);
         result+=*ret[i];
