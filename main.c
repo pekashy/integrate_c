@@ -24,6 +24,11 @@ typedef struct core {
     int load;
 } core;
 
+typedef struct cpu{
+    int procs;
+    int cores;
+} cpu;
+
 double f(double x){
     return x;
 }
@@ -77,11 +82,16 @@ int input(int argc, char** argv){
 
 int main(int argc, char* argv[]) {
     clock_t start = clock() ;
+    cpu_set_t mask;
+    int mCpu, mCore;
+    CPU_ZERO (&mask);
+    CPU_SET ((mCpu=sched_getcpu()), &mask);
+    pthread_setaffinity_np (pthread_self(), sizeof (cpu_set_t), &mask);
 
     int n=input(argc, argv);
     if(!n || n<1) return -1;
     double a=0;
-    double b=1000;
+    double b=500;
     double result = 0;
     int procNum=get_nprocs();
     int coreIdMax = -1;
@@ -100,8 +110,10 @@ int main(int argc, char* argv[]) {
     }
     pthread_t thre[procNum];
     pthread_t threads[n];
-    core *cores = malloc(sizeof(core) * (coreIdMax + 1));
-    proc *procs = malloc(sizeof(proc) * procNum);
+    int *cores = malloc(sizeof(int) * (coreIdMax + 1));
+    int *procs = malloc(sizeof(int) * procNum);
+    memset(cores, 0, sizeof(int) * (coreIdMax + 1));
+    memset(procs, 0, sizeof(int) * procNum);
 
     int processor, coreId;
     int res = -1;
@@ -112,33 +124,28 @@ int main(int argc, char* argv[]) {
     int loadCore=2 * loadCpu;
     int bounded=0;
     pthread_attr_t attr;
-    cpu_set_t mask;
     pthread_attr_init(&attr);
-    int mCpu, mCore;
     int i=0;
     int k=n%procNum*(n>procNum);
     int t=0;
     bo[0].a = a;
     bo[0].b = a + (b - a) / n ;
 
-    CPU_ZERO (&mask);
-    CPU_SET ((mCpu=sched_getcpu()), &mask);
-    pthread_setaffinity_np (pthread_self(), sizeof (cpu_set_t), &mask);
-    procs[mCpu].load++;
+    procs[mCpu]++;
     char c[33];
     sprintf(c, "head -%d /proc/cpuinfo | tail -1\0", (mCpu*27+12));
     FILE* cc=popen(c, "r");
    // printf("%s\n", c);
 
     fscanf(cc, "core id         : %d", &mCore);
-    cores[mCore].load++;
-    //printf("bounding %d %d\n", mCpu, mCore);
+    cores[mCore]++;
+    printf("bounding %d %d\n", mCpu, mCore);
     sched_setscheduler(pthread_self(), SCHED_FIFO, NULL);
     clock_t end = clock() ;
     double elapsed_time = (end-start)/(double)CLOCKS_PER_SEC ;
     printf("PARSING DONE: %f\n", elapsed_time);
     while ((res = fscanf(cpuinfo_file, "processor : %d\ncore id : %d\n", &processor, &coreId)) == 2) {
-        while (procs[processor].load < loadCpu && cores[coreId].load < loadCore) {
+        while (procs[processor] < loadCpu && cores[coreId] < loadCore) {
             //printf("processor : %d\ncore id : %d\n", processor, coreId);
             end = clock() ;
             printf("CYCLE: %f\n", (end-start)/(double)CLOCKS_PER_SEC);
@@ -169,8 +176,8 @@ int main(int argc, char* argv[]) {
                 }
                 t++;
             }
-            procs[processor].load++;
-            cores[coreId].load++;
+            procs[processor]++;
+            cores[coreId]++;
         }
         if (k > 0) {
             if (i < n - 1) {
@@ -196,7 +203,7 @@ int main(int argc, char* argv[]) {
                 }
                 t++;
             }
-            procs[processor].load++;
+            procs[processor]++;
             //cores[coreId].load++;
             k--;
         }
