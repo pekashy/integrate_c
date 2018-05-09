@@ -53,7 +53,7 @@ void* threadFunc(void* b){
     long long n=(long long) ((bord->b-a)/EPS);
     long long count=0;
     //double end = clock() ;
-    //int mCpu=bord->mCpu;
+    if(bord->mCpu==-1) usleep(50000);
     for(double x=a+EPS; count<n; count=count+1){
         //printf("COUNT TIME: %f\n ", (clock()-end)/(double)CLOCKS_PER_SEC);
 
@@ -74,7 +74,7 @@ void* burst(void* b){
     int n=(int) ((bord->b-bord->a)/EPS);
     int ftrp=0;
     double *summ= malloc((sizeof(double)));
-
+    //if()
     for(double x=bord->a+EPS; count<n; count++){
         //printf("COUNT TIME: %f\n ", (clock()-end)/(double)CLOCKS_PER_SEC);
         //if(count%100) pthread_yield();
@@ -200,6 +200,8 @@ int main(int argc, char* argv[]) {
             if (i < n - 1) {
                 bo[i].a = a + (b - a) / n * i;
                 bo[i].b = a + (b - a) / n * (i + 1);
+                bo[i].mCpu=mCpu;
+
                 CPU_ZERO(&mask);
                 CPU_SET(processor, &mask);
                 pthread_attr_setaffinity_np(&attr, sizeof(cpu_set_t), &mask);
@@ -246,6 +248,7 @@ int main(int argc, char* argv[]) {
                 //if(coreId!=mCore && cores[coreId]>=1) break;
                 bb[t].a=bo[0].a;
                 bb[t].b=bo[0].b*10;
+                bb[t].mCpu=-1;
                 CPU_ZERO(&mask);
                 CPU_SET(processor, &mask);
                 pthread_attr_setaffinity_np(&attr, sizeof(cpu_set_t), &mask);
