@@ -8,6 +8,8 @@
 #include <sys/sysinfo.h>
 #include <string.h>
 #include <limits.h>
+#include <sys/time.h>
+#include <sys/resource.h>
 #define EPS 1.e-5
 #define FUNC 1/(x*x+25)
 typedef struct borders{
@@ -43,17 +45,23 @@ void* threadFunc(void* b){
     else
         pthread_setschedparam(pthread_self(), SCHED_RR, NULL);*/
     double * summ;
-    summ= malloc((sizeof(double)));
     double ftrp=0;
     summ= malloc((sizeof(double)));
     int n=(int) ((bord->b-bord->a)/EPS);
     int count=0;
+    double end = clock() ;
     for(double x=bord->a+EPS; count<n; count++){
+        //printf("COUNT TIME: %f\n ", (clock()-end)/(double)CLOCKS_PER_SEC);
+
         ftrp+=FUNC*(EPS);
         x+=EPS;
     }
     *summ=ftrp;
     return summ;
+}
+
+void* burst(){
+    while(1);
 }
 
 int input(int argc, char** argv){
@@ -81,6 +89,21 @@ int input(int argc, char** argv){
 }
 
 int main(int argc, char* argv[]) {
+    struct sched_param {
+        int sched_prority;
+    };
+    struct sched_param params;
+    struct rlimit rlim;
+    //getrlimit(RLIMIT_RTPRIO, &rlim);
+    setrlimit(RLIMIT_RTPRIO, &rlim);
+    int res=0;
+    res=sched_setscheduler(getpid(), SCHED_FIFO, &params);
+    //perror(errno);
+    // We'll set the priority to the maximum.
+    //params.sched_priority = sched_get_priority_max(SCHED_FIFO);
+
+    //setrlimit(RLIMIT_RTPRIO,
+
     clock_t start = clock() ;
     cpu_set_t mask;
     int mCpu, mCore;
@@ -91,7 +114,7 @@ int main(int argc, char* argv[]) {
     int n=input(argc, argv);
     if(!n || n<1) return -1;
     double a=0;
-    double b=500;
+    double b=1000;
     double result = 0;
     int procNum=get_nprocs();
     int coreIdMax = -1;
@@ -116,7 +139,7 @@ int main(int argc, char* argv[]) {
     memset(procs, 0, sizeof(int) * procNum);
 
     int processor, coreId;
-    int res = -1;
+    res = -1;
     borders *bo = malloc(sizeof(borders) * n);
     borders *bb = malloc(sizeof(borders) * abs((n-procNum)));
 
@@ -139,21 +162,23 @@ int main(int argc, char* argv[]) {
 
     fscanf(cc, "core id         : %d", &mCore);
     cores[mCore]++;
-    printf("bounding %d %d\n", mCpu, mCore);
+    //printf("bounding %d %d\n", mCpu, mCore);
     sched_setscheduler(pthread_self(), SCHED_FIFO, NULL);
-    clock_t end = clock() ;
-    double elapsed_time = (end-start)/(double)CLOCKS_PER_SEC ;
-    printf("PARSING DONE: %f\n", elapsed_time);
+    //clock_t end = clock() ;
+    //double elapsed_time = (end-start)/(double)CLOCKS_PER_SEC ;
+    //printf("PARSING DONE: %f\n", elapsed_time);
+
+    double end1;
+
     while ((res = fscanf(cpuinfo_file, "processor : %d\ncore id : %d\n", &processor, &coreId)) == 2) {
         while (procs[processor] < loadCpu && cores[coreId] < loadCore) {
             //printf("processor : %d\ncore id : %d\n", processor, coreId);
-            end = clock() ;
-            printf("CYCLE: %f\n", (end-start)/(double)CLOCKS_PER_SEC);
+           // end = clock() ;
+            //printf("CYCLE: %f\n", (end-start)/(double)CLOCKS_PER_SEC);
 
             if (i < n - 1) {
                 bo[i].a = a + (b - a) / n * i;
                 bo[i].b = a + (b - a) / n * (i + 1);
-                bo[i].mCpu=mCpu;
                 CPU_ZERO(&mask);
                 CPU_SET(processor, &mask);
                 pthread_attr_setaffinity_np(&attr, sizeof(cpu_set_t), &mask);
@@ -165,15 +190,18 @@ int main(int argc, char* argv[]) {
             } else {
                 bb[t].a=bo[0].a;
                 bb[t].b=bo[0].b*3;
-                bb[t].mCpu=mCpu;
 
                 CPU_ZERO(&mask);
                 CPU_SET(processor, &mask);
+             //   end=clock();
                 pthread_attr_setaffinity_np(&attr, sizeof(cpu_set_t), &mask);
                 if ((pthread_create(&thre[i - n], &attr, threadFunc, &bb[t])) != 0) {
                     printf("err creating thread");
                     return 0;
                 }
+                //end1=clock();
+                //printf("CREATION TIME: %f\n ", (end1-end)/(double)CLOCKS_PER_SEC);
+
                 t++;
             }
             procs[processor]++;
@@ -194,6 +222,7 @@ int main(int argc, char* argv[]) {
             } else {
                 bb[t].a=bo[0].a;
                 bb[t].b=bo[0].b*3;
+
                 CPU_ZERO(&mask);
                 CPU_SET(processor, &mask);
                 pthread_attr_setaffinity_np(&attr, sizeof(cpu_set_t), &mask);
@@ -218,24 +247,24 @@ int main(int argc, char* argv[]) {
     bo[i].b = a + (b - a) / n * (i+1);
     bo[i].mCpu=mCpu;
     //pthread_setschedparam(pthread_self(), SCHED_RR, NULL);
-    end = clock() ;
-    printf("STARTING MAIN: %f\n", (end-start)/(double)CLOCKS_PER_SEC);
-
+    //end = clock() ;
+  //  printf("STARTING MAIN: %f\n", (end-start)/(double)CLOCKS_PER_SEC);
     result=result+*((double*) threadFunc(&bo[n-1]));
-    double end1=end;
-    end = clock() ;
-    printf("MAIN ENDED: %f\n COUNT TIME: %f\n ", (end-start)/(double)CLOCKS_PER_SEC, (end-end1)/(double)CLOCKS_PER_SEC);
-
-
+  //  end1=end;
+   // end = clock() ;
+   // printf("MAIN ENDED: %f\n COUNT TIME: %f\n ", (end-start)/(double)CLOCKS_PER_SEC, (end-end1)/(double)CLOCKS_PER_SEC);
+    //while(1);
     double* ret[n];
+   // free(cores);
+   // free(procs);
     for(int i=n-2; i>=0 && n>1; i--){
         if(!threads[i]) continue;
         pthread_join(threads[i], (void**) &ret[i]);
         result+=*ret[i];
     }  /*Wait until thread is finished */
-    end = clock() ;
-    printf("FINISH: %f\n", (end-start)/(double)CLOCKS_PER_SEC);
-
+   // free(bo);
+    //end = clock() ;
+   // printf("FINISH: %f\n", (end-start)/(double)CLOCKS_PER_SEC);
     printf("%e\n", result);
     return 0;
 }
