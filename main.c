@@ -53,7 +53,7 @@ void* threadFunc(void* b){
     long long n=(long long) ((bord->b-a)/EPS);
     long long count=0;
     //double end = clock() ;
-    //if(bord->mCpu==-1) usleep(30000);
+//    if(bord->mCpu==-1) nice(1));
     for(double x=a+EPS; count<n; count=count+1){
         //printf("COUNT TIME: %f\n ", (clock()-end)/(double)CLOCKS_PER_SEC);
 
@@ -68,19 +68,31 @@ void* threadFunc(void* b){
 }
 
 void* burst(void* b){
-    int k=0;
+    //printf("ID: %lu, CPU: %d\n", pthread_self(), sched_getcpu());
     borders* bord = (borders*) b;
-    int count=0;
-    int n=(int) ((bord->b-bord->a)/EPS);
-    int ftrp=0;
-    double *summ= malloc((sizeof(double)));
-    //if()
-    for(double x=bord->a+EPS; count<n; count++){
+    /*if(bord->mCpu==-1){
+        //sched_yield();
+        pthread_setschedparam(pthread_self(), SCHED_OTHER, NULL);
+    }
+    else
+        pthread_setschedparam(pthread_self(), SCHED_RR, NULL);*/
+    double * summ;
+    double ftrp=0;
+    summ= malloc((sizeof(double)));
+    double a= bord->a;
+    long long n=(long long) ((bord->b-a)/EPS);
+    long long count=0;
+    //double end = clock() ;
+//    if(bord->mCpu==-1) nice(1));
+    //usleep(1000);
+    for(double x=a+EPS; count<n; count=count+1){
         //printf("COUNT TIME: %f\n ", (clock()-end)/(double)CLOCKS_PER_SEC);
-        //if(count%100) pthread_yield();
-
+        if(!count%200000) usleep(1000);
         ftrp+=FUNC*(EPS);
         x+=EPS;
+        /*if(mCpu==-1){
+            if(count%200000==0) usleep(700);
+        }*/
     }
 
 }
@@ -110,22 +122,7 @@ int input(int argc, char** argv){
 }
 
 int main(int argc, char* argv[]) {
-    /*struct sched_param {
-        int sched_prority;
-    };
-    struct sched_param params;
-    struct rlimit rlim;
-    //getrlimit(RLIMIT_RTPRIO, &rlim);
-    setrlimit(RLIMIT_RTPRIO, &rlim);
-    int res=0;
-    res=sched_setscheduler(getpid(), SCHED_FIFO, &params);
-    //perror(errno);
-    // We'll set the priority to the maximum.
-    //params.sched_priority = sched_get_priority_max(SCHED_FIFO);
 
-    //setrlimit(RLIMIT_RTPRIO,
-*/
-    //clock_t start = clock() ;
     cpu_set_t mask;
     int mCpu, mCore;
     CPU_ZERO (&mask);
@@ -220,7 +217,7 @@ int main(int argc, char* argv[]) {
                 CPU_SET(processor, &mask);
              //   end=clock();
                 pthread_attr_setaffinity_np(&attr, sizeof(cpu_set_t), &mask);
-                if ((pthread_create(&thre[t], &attr, threadFunc, &bb[t])) != 0) {
+                if ((pthread_create(&thre[t], &attr, burst, &bb[t])) != 0) {
                     printf("err creating thread");
                     return 0;
                 }
@@ -252,7 +249,7 @@ int main(int argc, char* argv[]) {
                 CPU_ZERO(&mask);
                 CPU_SET(processor, &mask);
                 pthread_attr_setaffinity_np(&attr, sizeof(cpu_set_t), &mask);
-                if ((pthread_create(&thre[t], &attr, threadFunc, &bb[t])) != 0) {
+                if ((pthread_create(&thre[t], &attr, burst, &bb[t])) != 0) {
                     printf("err creating thread");
                     return 0;
                 }
