@@ -53,7 +53,7 @@ void* threadFunc(void* b){
     long long n=(long long) ((bord->b-a)/EPS);
     long long count=0;
     //double end = clock() ;
-    if(bord->mCpu==-1) usleep(50000);
+    //if(bord->mCpu==-1) usleep(30000);
     for(double x=a+EPS; count<n; count=count+1){
         //printf("COUNT TIME: %f\n ", (clock()-end)/(double)CLOCKS_PER_SEC);
 
