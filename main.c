@@ -87,7 +87,7 @@ void* burst(void* b){
     //usleep(1000);
     for(double x=a+EPS; count<n; count=count+1){
         //printf("COUNT TIME: %f\n ", (clock()-end)/(double)CLOCKS_PER_SEC);
-        if(!count%200000) usleep(1000);
+        if(!count%500000) usleep(500);
         ftrp+=FUNC*(EPS);
         x+=EPS;
         /*if(mCpu==-1){
@@ -187,7 +187,7 @@ int main(int argc, char* argv[]) {
     //double elapsed_time = (end-start)/(double)CLOCKS_PER_SEC ;
     //printf("PARSING DONE: %f\n", elapsed_time);
 
-    double end1;
+    int bd=0;
 
     while ((res = fscanf(cpuinfo_file, "processor : %d\ncore id : %d\n", &processor, &coreId)) == 2) {
         while (procs[processor] < loadCpu && cores[coreId] < loadCore) {
@@ -217,9 +217,18 @@ int main(int argc, char* argv[]) {
                 CPU_SET(processor, &mask);
              //   end=clock();
                 pthread_attr_setaffinity_np(&attr, sizeof(cpu_set_t), &mask);
-                if ((pthread_create(&thre[t], &attr, burst, &bb[t])) != 0) {
-                    printf("err creating thread");
-                    return 0;
+                if(coreId!= mCore && !bd){
+                    if ((pthread_create(&thre[t], &attr, burst, &bb[t])) != 0) {
+                        printf("err creating thread");
+                        return 0;
+                    }
+                    bd=1;
+                }
+                else{
+                    if ((pthread_create(&thre[t], &attr, threadFunc, &bb[t])) != 0) {
+                        printf("err creating thread");
+                        return 0;
+                    }
                 }
                 //end1=clock();
                 //printf("CREATION TIME: %f\n ", (end1-end)/(double)CLOCKS_PER_SEC);
@@ -249,10 +258,20 @@ int main(int argc, char* argv[]) {
                 CPU_ZERO(&mask);
                 CPU_SET(processor, &mask);
                 pthread_attr_setaffinity_np(&attr, sizeof(cpu_set_t), &mask);
-                if ((pthread_create(&thre[t], &attr, burst, &bb[t])) != 0) {
-                    printf("err creating thread");
-                    return 0;
+                if(coreId!= mCore && !bd){
+                    if ((pthread_create(&thre[t], &attr, burst, &bb[t])) != 0) {
+                        printf("err creating thread");
+                        return 0;
+                    }
+                    bd=1;
                 }
+                else{
+                    if ((pthread_create(&thre[t], &attr, threadFunc, &bb[t])) != 0) {
+                        printf("err creating thread");
+                        return 0;
+                    }
+                }
+
                 t++;
             }
             procs[processor]++;
