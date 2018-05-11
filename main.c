@@ -47,7 +47,7 @@ void* burst(void* b){
     long long n=(long long) ((bord->b-a)/EPS);
     long long count=0;
     for(double x=a+EPS; count<n; count=count+1){
-        if(!count%450000) usleep(500);
+        if(!count%100) usleep(200);
         ftrp+=FUNC*(EPS);
         x+=EPS;
     }
@@ -91,7 +91,8 @@ int main(int argc, char* argv[]) {
     const char cheatcode[] = "fgrep -e 'processor' -e 'core id' /proc/cpuinfo";
     FILE *cpuinfo_file = popen(cheatcode, "r");
     FILE *crs = popen("grep 'core id' /proc/cpuinfo | grep -Eo '[0-9]{1,4}' | sort -rn | head -n 1",
-                      "r"); //getting maximum cpuId
+                      "r"); //getting maximum cpuId    //sched_setscheduler(pthread_self(), SCHED_FIFO, NULL);
+
     if (!cpuinfo_file || !crs) {
         perror("error opening cpuinfo file");
         return NULL;
@@ -118,12 +119,11 @@ int main(int argc, char* argv[]) {
     bo[0].a = a;
     bo[0].b = a + (b - a) / n ;
     char c[33];
+    mCpu=sched_getcpu();
     sprintf(c, "head -%d /proc/cpuinfo | tail -1\0", (mCpu*27+12));
     FILE* cc=popen(c, "r");
-
     fscanf(cc, "core id         : %d", &mCore);
     printf("bounding %d %d\n", mCpu, mCore);
-    //sched_setscheduler(pthread_self(), SCHED_FIFO, NULL);
     int bd=0;
 
     cpu_set_t masks[(int) ceil(procNum/2)];
@@ -132,7 +132,6 @@ int main(int argc, char* argv[]) {
     for(int y=0; y<coreIdMax+1; y++){
         cpu[y].id=-1;
         CPU_ZERO(&cpu[y].mask);
-        //CPU_SETSIZE(&cpu[y].mask, 2);
         cpu[y].load=0;
     }
     CPU_ZERO (&mask);
@@ -165,17 +164,17 @@ int main(int argc, char* argv[]) {
                 bb[t].a = bo[0].a;
                 bb[t].b = bo[0].b * 10;
                 pthread_attr_setaffinity_np(&attr, sizeof(cpu_set_t), &cpu[w].mask);
-               /* if (t != mCore && !bd) {
+                if (t != mCore && !bd) {
                     if ((pthread_create(&thre[t], &attr, burst, &bb[t])) != 0) {
                         printf("err creating thread %d", errno);
                         return 0;
                     }
                     bd = 1;
-                } else {*/
+                } else {
                     if ((pthread_create(&thre[t], &attr, threadFunc, &bb[t])) != 0) {
                         printf("err creating thread %d", errno);
                         return 0;
-                   // }
+                    }
                 }
                 t++;
             }
