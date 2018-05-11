@@ -1,5 +1,5 @@
 CC:= gcc
-CFLAGS = -g -pg -fprofile-arcs -ftest-coverage -Wall# -g for debug, -O2 for optimise and -Wall additional messages
+CFLAGS = -g -pg -std=c99 -fprofile-arcs -ftest-coverage -Wall# -g for debug, -O2 for optimise and -Wall additional messages
 LFLAGS = -pthread -lm --coverage
 SOURCES =main.c
 OBJECTS =main.o

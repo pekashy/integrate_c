@@ -7,6 +7,7 @@
 #include <sys/sysinfo.h>
 #include <string.h>
 #include <math.h>
+#include <limits.h>
 
 #define EPS 1.e-5
 #define FUNC 1/(x*x+25)
@@ -41,17 +42,24 @@ void* threadFunc(void* b){
 
 void* burst(void* b){
     borders* bord = (borders*) b;
-    double * summ;
     double ftrp=0;
     double a= bord->a;
     long long n=(long long) ((bord->b-a)/EPS);
     long long count=0;
     for(double x=a+EPS; count<n; count=count+1){
-        if(!count%100) usleep(200);
+        if(!count%10000) usleep(250);
         ftrp+=FUNC*(EPS);
         x+=EPS;
     }
 }
+
+/*void* burst1(){
+    int x=0;
+    while(1){
+        FUNC;
+        x++;
+    }
+}*/
 
 int input(int argc, char** argv){
     char *endptr, *str;
@@ -81,6 +89,9 @@ int main(int argc, char* argv[]) {
 
     cpu_set_t mask;
     int mCpu, mCore;
+    CPU_ZERO (&mask);
+    CPU_SET ((mCpu=sched_getcpu()), &mask);
+    pthread_setaffinity_np (pthread_self(), sizeof (cpu_set_t), &mask);
     int n=input(argc, argv);
     if(!n || n<1) return -1;
     double a=0;
@@ -127,16 +138,13 @@ int main(int argc, char* argv[]) {
     int bd=0;
 
     cpu_set_t masks[(int) ceil(procNum/2)];
-    int d=0;
     core* cpu=malloc(sizeof(core)*(coreIdMax+1));
     for(int y=0; y<coreIdMax+1; y++){
         cpu[y].id=-1;
         CPU_ZERO(&cpu[y].mask);
         cpu[y].load=0;
     }
-    CPU_ZERO (&mask);
-    CPU_SET ((mCpu=sched_getcpu()), &mask);
-    pthread_setaffinity_np (pthread_self(), sizeof (cpu_set_t), &mask);
+
     cpu[mCore].load=1;
     CPU_SET(mCpu, &cpu[mCore].mask);
     while ((res = fscanf(cpuinfo_file, "processor : %d\ncore id : %d\n", &processor, &coreId)) == 2) {
