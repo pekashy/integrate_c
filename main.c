@@ -10,7 +10,7 @@
 #include <limits.h>
 
 #define EPS 1.e-5
-#define FUNC 1/(x*x+25)
+#define FUNC 1/(x*x+1)
 
 typedef struct borders{
     double a;
@@ -42,13 +42,18 @@ void* threadFunc(void* b){
 
 void* burst(void* b){
     borders* bord = (borders*) b;
+    double * summ;
     double ftrp=0;
     double a= bord->a;
     long long n=(long long) ((bord->b-a)/EPS);
     long long count=0;
     for(double x=a+EPS; count<n; count=count+1){
-        if(!count%10000) usleep(250);
-        ftrp+=FUNC*(EPS);
+        //double*r =malloc(20000*sizeof(double));
+        //memset(r, '1', 20000*sizeof(double));
+        //free(r);
+        pow(x, 2343*sin(x));
+        if(!count%15000) sleep(1000);
+        ftrp+=pow(FUNC, 2343*sin(x))*(EPS);
         x+=EPS;
     }
 }
@@ -89,9 +94,6 @@ int main(int argc, char* argv[]) {
 
     cpu_set_t mask;
     int mCpu, mCore;
-    CPU_ZERO (&mask);
-    CPU_SET ((mCpu=sched_getcpu()), &mask);
-    pthread_setaffinity_np (pthread_self(), sizeof (cpu_set_t), &mask);
     int n=input(argc, argv);
     if(!n || n<1) return -1;
     double a=0;
@@ -145,8 +147,6 @@ int main(int argc, char* argv[]) {
         cpu[y].load=0;
     }
 
-    cpu[mCore].load=1;
-    CPU_SET(mCpu, &cpu[mCore].mask);
     while ((res = fscanf(cpuinfo_file, "processor : %d\ncore id : %d\n", &processor, &coreId)) == 2) {
         cpu[coreId].id=processor;
         CPU_SET(processor, &cpu[coreId].mask);
@@ -156,6 +156,12 @@ int main(int argc, char* argv[]) {
         perror("fscanf #1");
         return NULL;
     }
+    CPU_ZERO (&mask);
+    CPU_SET ((mCpu=sched_getcpu()), &mask);
+    pthread_setaffinity_np (pthread_self(), sizeof (cpu_set_t), &mask);
+    cpu[mCore].load=1;
+    CPU_SET(mCpu, &cpu[mCore].mask);
+
     for(int w=0; w<=coreIdMax; w++) {
         if (cpu[w].id == -1) continue;
         while (cpu[w].load < loadCore){
@@ -170,9 +176,9 @@ int main(int argc, char* argv[]) {
                 i++;
             } else {
                 bb[t].a = bo[0].a;
-                bb[t].b = bo[0].b * 10;
+                bb[t].b = bo[0].b * 100;
                 pthread_attr_setaffinity_np(&attr, sizeof(cpu_set_t), &cpu[w].mask);
-                if (t != mCore && !bd) {
+                if (t!=mCore && bd<1 || n==3) {
                     if ((pthread_create(&thre[t], &attr, burst, &bb[t])) != 0) {
                         printf("err creating thread %d", errno);
                         return 0;
@@ -202,7 +208,6 @@ int main(int argc, char* argv[]) {
             }
             //cpu[w].load++; DO NOT UNCOMMENT
             k--;
-
         }
     }
 
@@ -212,6 +217,23 @@ int main(int argc, char* argv[]) {
     bo[i].b = a + (b - a) / n * (i+1);
     result=result+*((double*) threadFunc(&bo[n-1]));
     double* ret[n+1];
+   /* struct timespec x;
+    x.tv_nsec=5;
+    x.tv_sec=0;
+    int d;
+    for(int i=n-2; i>=0 && n>1 ; i--){
+        if(!threads[i]) continue;
+
+        if(!(d=pthread_timedjoin_np(threads[i], (void**) &ret[i], &t))){
+            x.tv_nsec=5;
+            x.tv_sec=0;
+        }
+        if(d==0){
+            result+=*ret[i];
+            k--;
+        }
+        if(i==0 && k>0) i=n-2;
+    } /* Wait until thread is finished */
     for(int i=n-2; i>=0 && n>1; i--){
         if(!threads[i]) continue;
         pthread_join(threads[i], (void**) &ret[i]);
