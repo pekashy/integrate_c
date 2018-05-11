@@ -6,7 +6,6 @@ set(CMAKE_CXX_STANDARD 11)
 find_package (Threads REQUIRED)
 include_directories(${CMAKE_THREAD_INCLUDE_DIR})
 
-
 set(SOURCE_FILES
         main.c
         count.c

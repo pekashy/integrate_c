@@ -1,116 +1,52 @@
-#include "count.h"
+#define _GNU_SOURCE
+# define __GNUC_GNU_INLINE__ 1
+#include <stdlib.h>
+#include <pthread.h>
+#include <stdio.h>
+#include <errno.h>
+#include <zconf.h>
+#include <sys/sysinfo.h>
+#include <string.h>
+#include <limits.h>
+#include <sys/time.h>
+#include <sys/resource.h>
+#include <math.h>
 
+#define EPS 1.e-5
+#define FUNC 1/(x*x+25)
 typedef struct borders{
     double a;
     double b;
 } borders;
 
-typedef struct processor {
-    int id;
-    int aff;
-    int load;
-} proc;
-
-typedef struct core {
-    proc *procs[2];
-    int load;
-} core;
-
-typedef struct cpu{
-    core* cores;
-    proc* procs;
-} cpu;
-
-double f(double x){
-    return 1/(x*x+25);
-}
-
-cpu* getCpuTopology2(int* coreIdMax, int procsNum) {
-    *coreIdMax = -1;
-    const char cheatcode[] = "fgrep -e 'processor' -e 'core id' /proc/cpuinfo";
-    FILE *cpuinfo_file = popen(cheatcode, "r");
-    FILE *crs = popen("grep 'core id' /proc/cpuinfo | grep -Eo '[0-9]{1,4}' | sort -rn | head -n 1",
-                      "r"); //getting maximum cpuId
-    if (!cpuinfo_file || !crs) {
-        perror("error opening cpuinfo file");
-        return NULL;
-    }
-    fscanf(crs, "%d", coreIdMax);
-    if (*coreIdMax < 0) {
-        printf("core num parsing error");
-        return NULL;
-    }
-
-    core *cores = malloc(sizeof(core) * (*coreIdMax + 1));
-    proc *procs = malloc(sizeof(proc) * procsNum);
-
-    cpu* top = malloc(sizeof(cpu));
-    top->procs=procs;
-    top->cores=cores;
-
-    for (int g = 0; g <= *coreIdMax; g++) {
-        cores[g].procs[0] = NULL;
-        cores[g].procs[1] = NULL;
-        cores[g].load = 0;
-    }
-    for (int g = 0; g < procsNum; g++) {//can be removed assuming we have hyperthr
-        procs[g].id = g;
-        procs[g].load = 0;
-        procs[g].aff = -1;
-    }
-    int processor, coreId;
-    int res = -1;
-    while ((res = fscanf(cpuinfo_file, "processor : %d\ncore id : %d\n", &processor, &coreId)) == 2) {
-        procs[processor].aff = coreId;
-        procs[processor].id = processor;
-        if (!cores[coreId].procs[0]) //bounding
-            cores[coreId].procs[0] = &procs[processor];
-        else
-            cores[coreId].procs[1] = &procs[processor];
-    }
-    if (res != EOF) {
-        perror("fscanf #1");
-        return NULL;
-    }
-    errno = 0;
-    fclose(cpuinfo_file);
-    fclose(crs);
-    if (errno) {
-        perror("closing error");
-        return NULL;
-    }
-    return top;
-}
-
-int getCpu(cpu* top, int maxCoreId, int n, int procNum){
-    int c=0, p=0;
-    for(int i=0; i<=maxCoreId; i++) {
-        if(!top->cores[i].procs[0]) continue; //no core with this id
-        if (top->cores[i].load < (2 * n / procNum)) {
-            c = i;
-            break;
-        }
-    }
-    if(top->cores[c].procs[0]->load<=top->cores[c].procs[1]->load) p=top->cores[c].procs[0]->id;
-    else p=top->cores[c].procs[1]->id;
-    top->cores[c].load++;
-    top->procs[p].load++;
-    return p;
-}
-
 void* threadFunc(void* b){
-    double (*fp) (double x)=f;
     borders* bord = (borders*) b;
     double * summ;
-    summ= malloc((sizeof(double)));
     double ftrp=0;
-    int count=0;
-    for(double i=bord->a+EPS; i<bord->b; i+=EPS){
-        ftrp+=0.5*(fp(i-EPS)+fp(i))*(EPS);
-        count++;
+    summ= malloc((sizeof(double)));
+    double a= bord->a;
+    long long n=(long long) ((bord->b-a)/EPS);
+    long long count=0;
+    for(double x=a+EPS; count<n; count=count+1){
+        ftrp+=FUNC*(EPS);
+        x+=EPS;
     }
     *summ=ftrp;
     return summ;
+}
+
+void* burst(void* b){
+    borders* bord = (borders*) b;
+    double * summ;
+    double ftrp=0;
+    double a= bord->a;
+    long long n=(long long) ((bord->b-a)/EPS);
+    long long count=0;
+    for(double x=a+EPS; count<n; count=count+1){
+        if(!count%450000) usleep(500);
+        ftrp+=FUNC*(EPS);
+        x+=EPS;
+    }
 }
 
 int input(int argc, char** argv){
@@ -137,79 +73,159 @@ int input(int argc, char** argv){
     return (int) val;
 }
 
-
 int main(int argc, char* argv[]) {
+
+    cpu_set_t mask;
+    int mCpu, mCore;
+    CPU_ZERO (&mask);
+    CPU_SET ((mCpu=sched_getcpu()), &mask);
+    pthread_setaffinity_np (pthread_self(), sizeof (cpu_set_t), &mask);
+
     int n=input(argc, argv);
     if(!n || n<1) return -1;
-    double a=1;
+    double a=0;
     double b=1000;
     double result = 0;
-    pthread_t threads[n];
-    int ncores=0;
+    int procNum=get_nprocs();
+    int coreIdMax = -1;
+    const char cheatcode[] = "fgrep -e 'processor' -e 'core id' /proc/cpuinfo";
+    FILE *cpuinfo_file = popen(cheatcode, "r");
+    FILE *crs = popen("grep 'core id' /proc/cpuinfo | grep -Eo '[0-9]{1,4}' | sort -rn | head -n 1",
+                      "r"); //getting maximum cpuId
+    if (!cpuinfo_file || !crs) {
+        perror("error opening cpuinfo file");
+        return NULL;
+    }
+    fscanf(crs, "%d", &coreIdMax);
+    if (coreIdMax < 0) {
+        printf("core num parsing error");
+        return NULL;
+    }
+    pthread_t thre[procNum];
+    pthread_t threads[n+1];
+    int *cores = malloc(sizeof(int) * (coreIdMax + 1));
+    int *procs = malloc(sizeof(int) * procNum);
+    memset(cores, 0, sizeof(int) * (coreIdMax + 1));
+    memset(procs, 0, sizeof(int) * procNum);
+    int processor, coreId;
+    int res = -1;
     borders *bo = malloc(sizeof(borders) * n);
+    borders *bb = malloc(sizeof(borders) * abs((n-procNum)));
+    printf("%d", abs((n-procNum)));
+    int loadCpu=  ( ((n / procNum) > (1)) ? (n / procNum) : (1) ); //per cpu
+    int loadCore=2 * loadCpu;
     pthread_attr_t attr;
-    cpu_set_t mask;
     pthread_attr_init(&attr);
-    int nprocs = get_nprocs();
-    cpu *top = getCpuTopology2(&ncores, nprocs);
-    if (!top) {
-        printf("cpu topology parsing error");
-        return 0;
-    }
+    int i=0;
+    int k=n%procNum*(n>procNum);
+    int t=0;
+    bo[0].a = a;
+    bo[0].b = a + (b - a) / n ;
 
-    pthread_t thre[nprocs];
-    bo[n-1].a=a+(b-a)/n*(n-1);
-    bo[n-1].b=a+(b-a)/n*(n);
-    borders *bb = malloc(sizeof(borders));
-    bb[0].a=a;
-    bb[0].b=a+(b-a)/(n*0.3);
-    CPU_ZERO (&mask);
-    CPU_SET (0, &mask);
-    pthread_setaffinity_np (pthread_self(), sizeof (cpu_set_t), &mask);
-    int mCpu = sched_getcpu();
-    top->procs[mCpu].load++;
-    top->cores[top->procs[mCpu].aff].load++;
-    int proc;
-    for (int i = 0; n > 1 && i < n - 1; i++) {
-        if (mCpu != sched_getcpu()) {
-            top->procs[mCpu].load--;
-            top->cores[top->procs[mCpu].aff].load--;
-            mCpu = sched_getcpu();
-            top->procs[mCpu].load++;
-            top->cores[top->procs[mCpu].aff].load++;
-        }
-        proc = getCpu(top, ncores, n, nprocs);
-        bo[i].a = a + (b - a) / n * i;
-        bo[i].b = a + (b - a) / n * (i + 1);
+    procs[mCpu]++;
+    char c[33];
+    sprintf(c, "head -%d /proc/cpuinfo | tail -1\0", (mCpu*27+12));
+    FILE* cc=popen(c, "r");
 
-        CPU_ZERO(&mask);
-        CPU_SET(proc, &mask);
-        pthread_attr_setaffinity_np(&attr, sizeof(cpu_set_t), &mask);
-        if ((pthread_create(&threads[i], &attr, threadFunc, &bo[i])) != 0) {
-            printf("err creating thread");
-            return 0;
-        }
-    }
+    fscanf(cc, "core id         : %d", &mCore);
+    cores[mCore]++;
+    printf("bounding %d %d\n", mCpu, mCore);
+    sched_setscheduler(pthread_self(), SCHED_FIFO, NULL);
+    int bd=0;
 
+    while ((res = fscanf(cpuinfo_file, "processor : %d\ncore id : %d\n", &processor, &coreId)) == 2) {
+        while (procs[processor] < loadCpu && cores[coreId] < loadCore) {
+            if (i < n - 1) {
+                bo[i].a = a + (b - a) / n * i;
+                bo[i].b = a + (b - a) / n * (i + 1);
 
-    if(n<nprocs){
-        for(int i=n; i<nprocs; i++){
-            proc = getCpu(top, ncores, nprocs, nprocs);
-            CPU_ZERO(&mask);
-            CPU_SET(proc, &mask);
-            pthread_attr_setaffinity_np(&attr, sizeof(cpu_set_t), &mask);
-            if ((pthread_create(&thre[i-n], &attr, threadFunc, &bb[0])) != 0) {
-                printf("err creating thread");
-                return 0;
+                CPU_ZERO(&mask);
+                CPU_SET(processor, &mask);
+                pthread_attr_setaffinity_np(&attr, sizeof(cpu_set_t), &mask);
+                if ((pthread_create(&threads[i], &attr, threadFunc, &bo[i])) != 0) {
+                    printf("err creating thread");
+                    return 0;
+                }
+                i++;
+            } else{
+                bb[t].a=bo[0].a;
+                bb[t].b=bo[0].b*10;
+                CPU_ZERO(&mask);
+                CPU_SET(processor, &mask);
+                pthread_attr_setaffinity_np(&attr, sizeof(cpu_set_t), &mask);
+                if(coreId!= mCore && !bd){
+                    if ((pthread_create(&thre[t], &attr, burst, &bb[t])) != 0) {
+                        printf("err creating thread");
+                        return 0;
+                    }
+                    bd=1;
+                }
+                else{
+                    if ((pthread_create(&thre[t], &attr, threadFunc, &bb[t])) != 0) {
+                        printf("err creating thread");
+                        return 0;
+                    }
+                }
+                t++;
             }
+            procs[processor]++;
+            cores[coreId]++;
+        }
+        if (k > 0) {
+            if (i < n - 1) {
+                bo[i].a = a + (b - a) / n * i;
+                bo[i].b = a + (b - a) / n * (i + 1);
+                CPU_ZERO(&mask);
+                CPU_SET(processor, &mask);
+                pthread_attr_setaffinity_np(&attr, sizeof(cpu_set_t), &mask);
+                if ((pthread_create(&threads[i], &attr, threadFunc, &bo[i])) != 0) {
+                    printf("err creating thread");
+                    return 0;
+                }
+                i++;
+            } else{
+                bb[t].a=bo[0].a;
+                bb[t].b=bo[0].b*10;
+                CPU_ZERO(&mask);
+                CPU_SET(processor, &mask);
+                pthread_attr_setaffinity_np(&attr, sizeof(cpu_set_t), &mask);
+                if(coreId!= mCore && !bd){
+                    if ((pthread_create(&thre[t], &attr, burst, &bb[t])) != 0) {
+                        printf("err creating thread");
+                        return 0;
+                    }
+                    bd=1;
+                }
+                else{
+                    if ((pthread_create(&thre[t], &attr, threadFunc, &bb[t])) != 0) {
+                        printf("err creating thread");
+                        return 0;
+                    }
+                }
+
+                t++;
+            }
+            procs[processor]++;
+            k--;
         }
     }
+
+    if (res != EOF) {
+        perror("fscanf #1");
+        return NULL;
+    }
+    errno = 0;
+    bo[i].a = a + (b - a) / n * i;
+    bo[i].b = a + (b - a) / n * (i+1);
     result=result+*((double*) threadFunc(&bo[n-1]));
-    double* ret[n];
+    double* ret[n+1];
+    free(cores);
+    free(procs);
     for(int i=n-2; i>=0 && n>1; i--){
         if(!threads[i]) continue;
         pthread_join(threads[i], (void**) &ret[i]);
         result+=*ret[i];
+        free(ret[i]);
     }  /*Wait until thread is finished */
     printf("%e\n", result);
     return 0;
