@@ -36,31 +36,13 @@ void* threadFunc(void* b){
         ftrp+=FUNC*(EPS);
         x+=EPS;
     }
+    printf("proc %lu; proc %d; a %f\n", pthread_self(), sched_getcpu(), a);
     *summ=ftrp;
     return summ;
 }
 
 void* burst(void* b){
-    borders* bord = (borders*) b;
-    double * summ;
-    double ftrp=0;
-    double a= bord->a;
-    long long n=(long long) ((bord->b-a)/EPS);
-    long long count=0;
-    double x=a+EPS;
-    /*for(double x=a+EPS; count<n; count=count+1){
-        //double*r =malloc(20000*sizeof(double));
-        //memset(r, '1', 20000*sizeof(double));
-        //free(r);
-
-                //if(!count%15000) sleep(1000);
-        count % ((int) pow(x, 2343*sin(x*x)))*count % ((int) pow(x, 2343*sin(x)))*count % ((int) pow(x, 2343*sin(x)));
-        ftrp+=pow(sin(FUNC), 2343*sin(x*x))*(EPS);
-        ftrp+=pow(sin(FUNC), 2343*sin(x*x))*(EPS);
-
-        x+=EPS;
-    }*/
-    for(;;)/*count % ((int) pow(x, 2343*sin(x*x)))*count % ((int) pow(x, 2343*sin(x)))*count % ((int) pow(x, 2343*sin(x))*/;
+    for(;;);
 
 }
 
@@ -143,7 +125,6 @@ int main(int argc, char* argv[]) {
     FILE* cc=popen(c, "r");
     fscanf(cc, "core id         : %d", &mCore);
     printf("bounding %d %d\n", mCpu, mCore);
-    int bd=0;
 
     cpu_set_t masks[(int) ceil(procNum/2)];
     core* cpu=malloc(sizeof(core)*(coreIdMax+1));
@@ -172,6 +153,8 @@ int main(int argc, char* argv[]) {
         if (cpu[w].id == -1) continue;
         while (cpu[w].load < loadCore){
             if (i < n-1) {
+                printf("starting %dth process on core %d| current load %d loadCore %d\n",
+                       i, w, cpu[w].load,loadCore);
                 bo[i].a = a + (b - a) / n * i;
                 bo[i].b = a + (b - a) / n * (i + 1);
                 pthread_attr_setaffinity_np(&attr, sizeof(cpu_set_t), &cpu[w].mask);
@@ -181,27 +164,23 @@ int main(int argc, char* argv[]) {
                 }
                 i++;
             } else {
+                printf("starting %dth trash process on core %d| current load %d loadCore %d\n",
+                       t, w, cpu[w].load,loadCore);
                 bb[t].a = bo[0].a;
                 bb[t].b = bo[0].b * 100;
                 pthread_attr_setaffinity_np(&attr, sizeof(cpu_set_t), &cpu[w].mask);
-                if (bd<1 || n==3) {
-                    if ((pthread_create(&thre[t], &attr, burst, &bb[t])) != 0) {
+                if ((pthread_create(&thre[t], &attr, burst, &bb[t])) != 0) {
                         printf("err creating thread %d", errno);
                         return 0;
-                    }
-                    bd += 1;
-                } else {
-                    if ((pthread_create(&thre[t], &attr, burst, &bb[t])) != 0) {
-                        printf("err creating thread %d", errno);
-                        return 0;
-                    }
                 }
                 t++;
             }
             cpu[w].load++;
         }
-        for(int u=0; u<2 && k>0; u++){ //two times
+        /*if(k>0){
             if (i < n - 1) {
+                printf("starting %dth process on core %d -k| current load %d loadCore %d\n",
+                       i, w, cpu[w].load,loadCore);
                 bo[i].a = a + (b - a) / n * i;
                 bo[i].b = a + (b - a) / n * (i + 1);
                 pthread_attr_setaffinity_np(&attr, sizeof(cpu_set_t), &cpu[w].mask);
@@ -214,8 +193,29 @@ int main(int argc, char* argv[]) {
             }
             //cpu[w].load++; DO NOT UNCOMMENT
             k--;
-        }
+        }*/
+
     }
+    for(int w=0; w<=coreIdMax && k>0; w++){
+        if (cpu[w].id == -1) continue;
+        if (i < n - 1) {
+            printf("starting %dth process on core %d -k| current load %d loadCore %d\n",
+                   i, w, cpu[w].load,loadCore);
+            bo[i].a = a + (b - a) / n * i;
+            bo[i].b = a + (b - a) / n * (i + 1);
+            pthread_attr_setaffinity_np(&attr, sizeof(cpu_set_t), &cpu[w].mask);
+            if ((pthread_create(&threads[i], &attr, threadFunc, &bo[i])) != 0) {
+                printf("err creating thread %d", errno);
+                return 0;
+            }
+
+            i++;
+        }
+        //cpu[w].load++; DO NOT UNCOMMENT
+        k--;
+        if(w==coreIdMax && k>0) w=-1;
+    }
+
 
 
     errno = 0;
