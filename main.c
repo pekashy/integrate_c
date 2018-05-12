@@ -10,7 +10,7 @@
 #include <limits.h>
 
 #define EPS 1.e-5
-#define FUNC 1/(x*x+1)
+#define FUNC 1/(sin(x*x)+2)
 
 typedef struct borders{
     double a;
@@ -47,15 +47,21 @@ void* burst(void* b){
     double a= bord->a;
     long long n=(long long) ((bord->b-a)/EPS);
     long long count=0;
-    for(double x=a+EPS; count<n; count=count+1){
+    double x=a+EPS;
+    /*for(double x=a+EPS; count<n; count=count+1){
         //double*r =malloc(20000*sizeof(double));
         //memset(r, '1', 20000*sizeof(double));
         //free(r);
-        pow(x, 2343*sin(x));
-        if(!count%15000) sleep(1000);
-        ftrp+=pow(FUNC, 2343*sin(x))*(EPS);
+
+                //if(!count%15000) sleep(1000);
+        count % ((int) pow(x, 2343*sin(x*x)))*count % ((int) pow(x, 2343*sin(x)))*count % ((int) pow(x, 2343*sin(x)));
+        ftrp+=pow(sin(FUNC), 2343*sin(x*x))*(EPS);
+        ftrp+=pow(sin(FUNC), 2343*sin(x*x))*(EPS);
+
         x+=EPS;
-    }
+    }*/
+    for(;;)/*count % ((int) pow(x, 2343*sin(x*x)))*count % ((int) pow(x, 2343*sin(x)))*count % ((int) pow(x, 2343*sin(x))*/;
+
 }
 
 /*void* burst1(){
@@ -178,14 +184,14 @@ int main(int argc, char* argv[]) {
                 bb[t].a = bo[0].a;
                 bb[t].b = bo[0].b * 100;
                 pthread_attr_setaffinity_np(&attr, sizeof(cpu_set_t), &cpu[w].mask);
-                if (t!=mCore && bd<1 || n==3) {
+                if (bd<1 || n==3) {
                     if ((pthread_create(&thre[t], &attr, burst, &bb[t])) != 0) {
                         printf("err creating thread %d", errno);
                         return 0;
                     }
-                    bd = 1;
+                    bd += 1;
                 } else {
-                    if ((pthread_create(&thre[t], &attr, threadFunc, &bb[t])) != 0) {
+                    if ((pthread_create(&thre[t], &attr, burst, &bb[t])) != 0) {
                         printf("err creating thread %d", errno);
                         return 0;
                     }
