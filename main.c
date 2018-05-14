@@ -25,11 +25,14 @@ typedef struct core{
 } core;
 
 void* threadFunc(void* b){
+
     borders* bord = (borders*) b;
     double * summ;
     double ftrp=0;
     summ= malloc((sizeof(double)));
     double a= bord->a;
+    //printf("proc %lu; proc %d; a %f\n", pthread_self(), sched_getcpu(), a);
+
     long long n=(long long) ((bord->b-a)/EPS);
     long long count=0;
     for(double x=a+EPS; count<n; count=count+1){
@@ -42,8 +45,24 @@ void* threadFunc(void* b){
 }
 
 void* burst(void* b){
+    /*borders* bord = (borders*) b;
+    double * summ;
+    double ftrp=0;
+    double a= bord->a;
+    long long n=(long long) ((bord->b-a)/EPS);
+    long long count=0;
+    double x=a+EPS;
+    for(double x=a+EPS; count<n; count=count+1){
+        //double*r =malloc(20000*sizeof(double));
+        //memset(r, '1', 20000*sizeof(double));
+        //free(r);
+                //if(!count%15000) sleep(1000);
+        count % ((int) pow(x, 2343*sin(x*x)))*count % ((int) pow(x, 2343*sin(x)))*count % ((int) pow(x, 2343*sin(x)));
+        ftrp+=pow(sin(FUNC), 2343*sin(x*x))*(EPS);
+        ftrp+=pow(sin(FUNC), 2343*sin(x*x))*(EPS);
+        x+=EPS;
+    }**/
     for(;;);
-
 }
 
 /*void* burst1(){
@@ -82,13 +101,12 @@ int main(int argc, char* argv[]) {
 
     cpu_set_t mask;
     int mCpu, mCore;
-    int n=input(argc, argv);
-    if(!n || n<1) return -1;
-    double a=0;
-    double b=1000;
-    double result = 0;
+
     int procNum=get_nprocs();
+
     int coreIdMax = -1;
+    char c[33];
+
     const char cheatcode[] = "fgrep -e 'processor' -e 'core id' /proc/cpuinfo";
     FILE *cpuinfo_file = popen(cheatcode, "r");
     FILE *crs = popen("grep 'core id' /proc/cpuinfo | grep -Eo '[0-9]{1,4}' | sort -rn | head -n 1",
@@ -103,6 +121,34 @@ int main(int argc, char* argv[]) {
         printf("core num parsing error");
         return NULL;
     }
+
+
+    core* cpu=malloc(sizeof(core)*(coreIdMax+1));
+    for(int y=0; y<coreIdMax+1; y++){
+        cpu[y].id=-1;
+        CPU_ZERO(&cpu[y].mask);
+        cpu[y].load=0;
+    }
+
+    CPU_ZERO (&mask);
+    CPU_SET ((mCpu=sched_getcpu()), &mask);
+    pthread_setaffinity_np (pthread_self(), sizeof (cpu_set_t), &mask);
+
+    sprintf(c, "head -%d /proc/cpuinfo | tail -1\0", (mCpu*27+12));
+    FILE* cc=popen(c, "r");
+    fscanf(cc, "core id         : %d", &mCore);
+    printf("bounding %d %d\n", mCpu, mCore);
+
+    cpu[mCore].load=1;
+    CPU_SET(mCpu, &cpu[mCore].mask);
+
+    
+    int n=input(argc, argv);
+    if(!n || n<1) return -1;
+    double a=0;
+    double b=500;
+    double result = 0;
+
     pthread_t thre[procNum];
     pthread_t threads[n+1];
     int processor, coreId;
@@ -119,20 +165,6 @@ int main(int argc, char* argv[]) {
     int k=n%procNum*(n>procNum);
     bo[0].a = a;
     bo[0].b = a + (b - a) / n ;
-    char c[33];
-    mCpu=sched_getcpu();
-    sprintf(c, "head -%d /proc/cpuinfo | tail -1\0", (mCpu*27+12));
-    FILE* cc=popen(c, "r");
-    fscanf(cc, "core id         : %d", &mCore);
-    printf("bounding %d %d\n", mCpu, mCore);
-
-    cpu_set_t masks[(int) ceil(procNum/2)];
-    core* cpu=malloc(sizeof(core)*(coreIdMax+1));
-    for(int y=0; y<coreIdMax+1; y++){
-        cpu[y].id=-1;
-        CPU_ZERO(&cpu[y].mask);
-        cpu[y].load=0;
-    }
 
     while ((res = fscanf(cpuinfo_file, "processor : %d\ncore id : %d\n", &processor, &coreId)) == 2) {
         cpu[coreId].id=processor;
@@ -143,18 +175,12 @@ int main(int argc, char* argv[]) {
         perror("fscanf #1");
         return NULL;
     }
-    CPU_ZERO (&mask);
-    CPU_SET ((mCpu=sched_getcpu()), &mask);
-    pthread_setaffinity_np (pthread_self(), sizeof (cpu_set_t), &mask);
-    cpu[mCore].load=1;
-    CPU_SET(mCpu, &cpu[mCore].mask);
+
 
     for(int w=0; w<=coreIdMax; w++) {
         if (cpu[w].id == -1) continue;
         while (cpu[w].load < loadCore){
             if (i < n-1) {
-                printf("starting %dth process on core %d| current load %d loadCore %d\n",
-                       i, w, cpu[w].load,loadCore);
                 bo[i].a = a + (b - a) / n * i;
                 bo[i].b = a + (b - a) / n * (i + 1);
                 pthread_attr_setaffinity_np(&attr, sizeof(cpu_set_t), &cpu[w].mask);
@@ -162,17 +188,21 @@ int main(int argc, char* argv[]) {
                     printf("err creating thread %d", errno);
                     return 0;
                 }
+                printf("starting %dth process #%lu on core %d| current load %d loadCore %d\n",
+                       i, threads[i], w, cpu[w].load,loadCore);
+
                 i++;
-            } else {
-                printf("starting %dth trash process on core %d| current load %d loadCore %d\n",
-                       t, w, cpu[w].load,loadCore);
+            } else{
+
                 bb[t].a = bo[0].a;
                 bb[t].b = bo[0].b * 100;
                 pthread_attr_setaffinity_np(&attr, sizeof(cpu_set_t), &cpu[w].mask);
-                if ((pthread_create(&thre[t], &attr, burst, &bb[t])) != 0) {
+                if ((pthread_create(&thre[t], &attr, threadFunc, &bb[t])) != 0) {
                         printf("err creating thread %d", errno);
                         return 0;
                 }
+                printf("starting %dth trash process #%lu on core %d | current load %d loadCore %d\n",
+                       t, thre[t], w, cpu[w].load,loadCore);
                 t++;
             }
             cpu[w].load++;
@@ -208,7 +238,8 @@ int main(int argc, char* argv[]) {
                 printf("err creating thread %d", errno);
                 return 0;
             }
-
+            printf("starting %dth process #%lu on core %d| current load %d loadCore %d\n",
+                   i, threads[i], w, cpu[w].load,loadCore);
             i++;
         }
         //cpu[w].load++; DO NOT UNCOMMENT
