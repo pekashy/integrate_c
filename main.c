@@ -10,7 +10,7 @@
 #include <limits.h>
 
 #define EPS 1.e-4
-#define FUNC x*x
+#define FUNC 1/(x*x+25)
 
 typedef struct borders{
     double a;
@@ -100,13 +100,13 @@ int main(int argc, char* argv[]) {
     double a=0;
     double b=10000;
     double result = 0;
-    pthread_t thre[procNum];
+    pthread_t thre[procNum+1];
     pthread_t threads[n+1];
     int processor, coreId;
     int res = -1;
     int k=n%procNum*(n>procNum);
     borders *bo = calloc(n, sizeof(borders));
-    borders *bb = calloc(abs(n-procNum), sizeof(borders));
+    borders *bb = calloc(abs(n-procNum)+1, sizeof(borders));
     printf("%d", abs((n-procNum)));
     pthread_attr_t attr;
     pthread_attr_init(&attr);
@@ -129,7 +129,7 @@ int main(int argc, char* argv[]) {
     for(int w=0; w<=coreIdMax; w++) {
         if (cpu[w].id == -1) continue;
         if (cpu[w].load < loadCore){
-            if (i < n) {
+            /*if((n!=1) || ((n==1 && w==coreIdMax))) */if (i < n) {
                 bo[i].a = a + (b - a) / n * i;
                 bo[i].b = a + (b - a) / n * (i + 1);
                 pthread_attr_setaffinity_np(&attr, sizeof(cpu_set_t), &cpu[w].mask);
@@ -137,32 +137,35 @@ int main(int argc, char* argv[]) {
                     printf("err creating thread %d", errno);
                     return 0;
                 }
-                //printf("starting %dth process #%lu on core %d| current load %d loadCore %d\n",
-                //       i, threads[i], w, cpu[w].load,loadCore);
+                       i, threads[i], w, cpu[w].load,loadCore);
                 i++;
                 cpu[w].load++;
             }
+        }
+        if (cpu[w].load < loadCore){
             if(t<abs((n-procNum))*(n<procNum)){
                 bb[t].a = bo[0].a;
                 bb[t].b = bo[0].b;
                 pthread_attr_setaffinity_np(&attr, sizeof(cpu_set_t), &cpu[w].mask);
                 if ((pthread_create(&thre[t], &attr, threadFunc, &bb[t])) != 0) {
-                        printf("err creating thread %d", errno);
-                        return 0;
+                    printf("err creating thread %d", errno);
+                    return 0;
                 }
-                //printf("starting %dth trash process #%lu on core %d | current load %d loadCore %d\n",
-                //       t, thre[t], w, cpu[w].load,loadCore);
+                printf("starting %dth trash process #%lu on core %d | current load %d loadCore %d\n",
+                           t, thre[t], w, cpu[w].load,loadCore);
                 t++;
                 cpu[w].load++;
             }
         }
-        if(w==coreIdMax && (i<n || (t<abs((n-procNum)))*(n<procNum)) && cpu[w].load!=loadCore) w=-1;
+        //printf("\n%d %d\n", t, n);
+        if(w==coreIdMax && (i<n || (t<=abs((n-procNum)+1))*(n<procNum)) && cpu[w].load!=loadCore) w=-1;
     }
+
     for(int w=0; w<=coreIdMax && k>0; w++){
         if (cpu[w].id == -1) continue;
         if (i < n) {
-            //printf("starting %dth process on core %d -k| current load %d loadCore %d\n",
-         //          i, w, cpu[w].load,loadCore);
+            printf("starting %dth process on core %d -k| current load %d loadCore %d\n",
+                   i, w, cpu[w].load,loadCore);
             bo[i].a = a + (b - a) / n * i;
             bo[i].b = a + (b - a) / n * (i + 1);
             pthread_attr_setaffinity_np(&attr, sizeof(cpu_set_t), &cpu[w].mask);

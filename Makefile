@@ -4,9 +4,14 @@ LFLAGS = -pthread -lm --coverage
 SOURCES =main.c
 OBJECTS =main.o
 EXECUTABLE = run
+HEAT=$(shell ./run &> /dev/null)
 .PHONY: clean
+.PHONY: ht
 
-all: build link clean
+all: build link clean ht
+
+ht: 
+	echo $(HEAT)
 
 build: $(SOURCES)
 
