@@ -9,7 +9,7 @@
 #include <math.h>
 #include <limits.h>
 
-#define EPS 1.e-4
+#define EPS 1.e-7
 #define FUNC x*x
 
 typedef struct borders{
@@ -39,7 +39,7 @@ void* threadFunc(void* b){
         ftrp+=FUNC*(EPS);
         x+=EPS;
     }
-    //printf("proc %lu; proc %d; a %f\n", pthread_self(), sched_getcpu(), a);
+    printf("proc %lu; proc %d; a %f\n", pthread_self(), sched_getcpu(), a);
     *summ=ftrp;
     return summ;
 }
@@ -96,10 +96,10 @@ int main(int argc, char* argv[]) {
         cpu[y].load = 0;
     }
     int n = input(argc, argv);
-    //if(n>procNum) n=procNum;
+    if(n>procNum) n=procNum;
     if (!n || n < 1) return -1;
     double a = 0;
-    double b = 100000;
+    double b = 100;
     double result = 0;
     pthread_t thre[procNum + 1];
     pthread_t threads[n + 1];
@@ -131,7 +131,7 @@ int main(int argc, char* argv[]) {
         cpu[w].loadCore = n / coreNum + 1 * (r > 0);
         cpu[w].trashLoadCore = (minLoadCore - cpu[w].loadCore) * ((minLoadCore - cpu[w].loadCore) > 0);
         r--;
-        for (int tr = 0; tr < cpu[w].trashLoadCore+cpu[w].trashLoadCore*(cpu[w].loadCore==0); tr++) {
+        for (int tr = 0; tr < cpu[w].trashLoadCore+cpu[w].trashLoadCore*(cpu[w].loadCore==0 && w!=coreIdMax); tr++) {
             pthread_attr_setaffinity_np(&attr, sizeof(cpu_set_t), &cpu[w].mask);
             bb[t].a = a;
             bb[t].b = b*100.0;
@@ -140,8 +140,8 @@ int main(int argc, char* argv[]) {
                 printf("err creating thread %d", errno);
                 return 0;
             }
-            printf("starting %dth trash process #%lu on core %d | current load %d loadCore %d\n",
-                   t, thre[t], w, cpu[w].load, cpu[w].loadCore);
+            //printf("starting %dth trash process #%lu on core %d | current load %d loadCore %d\n",
+           //        t, thre[t], w, cpu[w].load, cpu[w].loadCore);
             t++;
             //cpu[w].load++;
         }
@@ -157,21 +157,24 @@ int main(int argc, char* argv[]) {
                 printf("err creating thread %d", errno);
                 return 0;
             }
-           printf("starting %dth process #%lu on core %d | current load %d loadCore %d\n",
-                   i, threads[i], w, cpu[w].load,cpu[w].loadCore);
-
+           //printf("starting %dth process #%lu on core %d | current load %d loadCore %d\n",
+            //       i, threads[i], w, cpu[w].load,cpu[w].loadCore);
             //i, threads[i], w, cpu[w].load,loadCore);
             i++;
             cpu[w].load++;
         }
     }
     double* ret[n+1];
+    for(int ii=0; ii<n+1; ii++){
+        ret[ii]=malloc(sizeof(double));
+    }
+    result=0;
     for(int i=n-1; i>=0; i--){
         if(!threads[i]) continue;
         pthread_join(threads[i], (void**) &ret[i]);
         result+=*ret[i];
         free(ret[i]);
-    }  /*Wait until thread is finished */
+    }
     printf("%e\n", result);
     return 0;
 }
