@@ -39,7 +39,7 @@ void* threadFunc(void* b){
         ftrp+=FUNC*(EPS);
         x+=EPS;
     }
-    printf("proc %lu; proc %d; a %f\n", pthread_self(), sched_getcpu(), a);
+    //printf("proc %lu; proc %d; a %f\n", pthread_self(), sched_getcpu(), a);
     *summ=ftrp;
     return summ;
 }
@@ -96,6 +96,7 @@ int main(int argc, char* argv[]) {
         cpu[y].load = 0;
     }
     int n = input(argc, argv);
+    //if(n>procNum) n=procNum;
     if (!n || n < 1) return -1;
     double a = 0;
     double b = 100000;
@@ -135,7 +136,7 @@ int main(int argc, char* argv[]) {
             bb[t].a = a;
             bb[t].b = b*100.0;
 
-            if ((pthread_create(&thre[t], &attr, threadFunc, &bb[0])) != 0) {
+            if ((pthread_create(&thre[t], &attr, threadFunc, &bb[t])) != 0) {
                 printf("err creating thread %d", errno);
                 return 0;
             }
@@ -156,7 +157,7 @@ int main(int argc, char* argv[]) {
                 printf("err creating thread %d", errno);
                 return 0;
             }
-            printf("starting %dth process #%lu on core %d | current load %d loadCore %d\n",
+           printf("starting %dth process #%lu on core %d | current load %d loadCore %d\n",
                    i, threads[i], w, cpu[w].load,cpu[w].loadCore);
 
             //i, threads[i], w, cpu[w].load,loadCore);
