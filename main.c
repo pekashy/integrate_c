@@ -110,8 +110,8 @@ int main(int argc, char* argv[]) {
     printf("%d", abs((n - procNum)));
     pthread_attr_t attr;
     pthread_attr_init(&attr);
-   // *//bo[0].a = a;
-   // bo[0].b = a + (b - a) / n;
+    // *//bo[0].a = a;
+    // bo[0].b = a + (b - a) / n;
     int coreNum = 0;
     while ((res = fscanf(cpuinfo_file, "processor : %d\ncore id : %d\n", &processor, &coreId)) == 2) {
         if (cpu[coreId].id == -1) coreNum++;
@@ -141,7 +141,7 @@ int main(int argc, char* argv[]) {
                 return 0;
             }
             //printf("starting %dth trash process #%lu on core %d | current load %d loadCore %d\n",
-           //        t, thre[t], w, cpu[w].load, cpu[w].loadCore);
+            //        t, thre[t], w, cpu[w].load, cpu[w].loadCore);
             t++;
             //cpu[w].load++;
         }
@@ -157,7 +157,7 @@ int main(int argc, char* argv[]) {
                 printf("err creating thread %d", errno);
                 return 0;
             }
-           //printf("starting %dth process #%lu on core %d | current load %d loadCore %d\n",
+            //printf("starting %dth process #%lu on core %d | current load %d loadCore %d\n",
             //       i, threads[i], w, cpu[w].load,cpu[w].loadCore);
             //i, threads[i], w, cpu[w].load,loadCore);
             i++;
