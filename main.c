@@ -8,6 +8,7 @@
 #include <string.h>
 #include <math.h>
 #include <limits.h>
+#include <assert.h>
 
 #define EPS 1.e-7
 #define FUNC x*x
@@ -75,16 +76,16 @@ int input(int argc, char** argv){
 
 int main(int argc, char* argv[]) {
     int procNum = get_nprocs();
+    int coreNum = 0;
     int coreIdMax = -1;
-    const char cheatcode[] = "fgrep -e 'processor' -e 'core id' /proc/cpuinfo";
-    FILE *cpuinfo_file = popen(cheatcode, "r");
+    FILE* cpuinfo_file = fopen("/proc/cpuinfo", "r");
+    assert(cpuinfo_file);
     FILE *crs = popen("grep 'core id' /proc/cpuinfo | grep -Eo '[0-9]{1,4}' | sort -rn | head -n 1",
                       "r"); //getting maximum cpuId    //sched_setscheduler(pthread_self(), SCHED_FIFO, NULL);
-    if (!cpuinfo_file || !crs) {
-        perror("error opening cpuinfo file");
-        return NULL;
-    }
+    FILE* prcslst=popen("grep 'core id' /proc/cpuinfo | grep -Eo '[0-9]{1,4}'","r");
+    FILE* crslst=popen("grep 'core id' /proc/cpuinfo | grep -Eo '[0-9]{1,4}'","r");
     fscanf(crs, "%d", &coreIdMax);
+    printf("%d\n", coreIdMax);
     if (coreIdMax < 0) {
         printf("core num parsing error");
         return NULL;
@@ -94,6 +95,15 @@ int main(int argc, char* argv[]) {
         cpu[y].id = -1;
         CPU_ZERO(&cpu[y].mask);
         cpu[y].load = 0;
+    }
+    char prcid[4];
+    char crid[4];
+    while(fgets(prcid, 4, (FILE*) prcslst) && fgets(crid, 4, (FILE*) crslst)){
+        printf("%d %d\n", atoi(crid), atoi(prcid));
+        int processor=atoi(prcid), coreId=atoi(crid);
+        if (cpu[coreId].id == -1) coreNum++;
+        cpu[coreId].id = processor;
+        CPU_SET(processor, &cpu[coreId].mask);
     }
     int n = input(argc, argv);
     if(n>procNum) n=procNum;
@@ -107,27 +117,15 @@ int main(int argc, char* argv[]) {
     int res = -1;
     borders *bo = calloc(n, sizeof(borders));
     borders *bb = calloc(abs(n - procNum) + 1, sizeof(borders));
-    printf("%d", abs((n - procNum)));
+    printf("%d\n", abs((n - procNum)));
     pthread_attr_t attr;
     pthread_attr_init(&attr);
-    // *//bo[0].a = a;
-    // bo[0].b = a + (b - a) / n;
-    int coreNum = 0;
-    while ((res = fscanf(cpuinfo_file, "processor : %d\ncore id : %d\n", &processor, &coreId)) == 2) {
-        if (cpu[coreId].id == -1) coreNum++;
-        cpu[coreId].id = processor;
-        CPU_SET(processor, &cpu[coreId].mask);
-    }
-    if (res != EOF) {
-        perror("fscanf #1");
-        return NULL;
-    }
     int minLoadCore = procNum / coreNum;
-    int k = n % coreNum;
-    int r = k;
+    int r = n % coreNum;
     int i=0, t = 0;
     for (int w = 0; w <= coreIdMax; w++) {
         if (cpu[w].id == -1) continue;
+        printf("w %d\n", w);
         cpu[w].loadCore = n / coreNum + 1 * (r > 0);
         cpu[w].trashLoadCore = (minLoadCore - cpu[w].loadCore) * ((minLoadCore - cpu[w].loadCore) > 0);
         r--;
