@@ -1,9 +1,10 @@
 CC:= gcc
-CFLAGS = -g -pg -fprofile-arcs -ftest-coverage -Wall# -g for debug, -O2 for optimise and -Wall additional messages
-LFLAGS = -pthread -lm --coverage
+CFLAGS = -g -pg -std=c99 -Wall# -g for debug, -O2 for optimise and -Wall additional messages
+LFLAGS = -pthread -lm 
 SOURCES =main.c
 OBJECTS =main.o
 EXECUTABLE = run
+
 .PHONY: clean
 
 all: build link clean
