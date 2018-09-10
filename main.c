@@ -82,7 +82,7 @@ int main(int argc, char* argv[]) {
     assert(cpuinfo_file);
     FILE *crs = popen("grep 'core id' /proc/cpuinfo | grep -Eo '[0-9]{1,4}' | sort -rn | head -n 1",
                       "r"); //getting maximum cpuId    //sched_setscheduler(pthread_self(), SCHED_FIFO, NULL);
-    FILE* prcslst=popen("grep 'core id' /proc/cpuinfo | grep -Eo '[0-9]{1,4}'","r");
+    FILE* prcslst=popen("grep 'processor' /proc/cpuinfo | grep -Eo '[0-9]{1,4}'","r");
     FILE* crslst=popen("grep 'core id' /proc/cpuinfo | grep -Eo '[0-9]{1,4}'","r");
     fscanf(crs, "%d", &coreIdMax);
     printf("%d\n", coreIdMax);
@@ -109,7 +109,7 @@ int main(int argc, char* argv[]) {
     if(n>procNum) n=procNum;
     if (!n || n < 1) return -1;
     double a = 0;
-    double b = 100;
+    double b = 150;
     double result = 0;
     pthread_t thre[procNum + 1];
     pthread_t threads[n + 1];
@@ -129,7 +129,7 @@ int main(int argc, char* argv[]) {
         cpu[w].loadCore = n / coreNum + 1 * (r > 0);
         cpu[w].trashLoadCore = (minLoadCore - cpu[w].loadCore) * ((minLoadCore - cpu[w].loadCore) > 0);
         r--;
-        for (int tr = 0; tr < cpu[w].trashLoadCore+cpu[w].trashLoadCore*(cpu[w].loadCore==0 && w!=coreIdMax); tr++) {
+        for (int tr = 0; tr < cpu[w].trashLoadCore/*+cpu[w].trashLoadCore*(cpu[w].loadCore==0 && w!=coreIdMax)*/; tr++) {
             pthread_attr_setaffinity_np(&attr, sizeof(cpu_set_t), &cpu[w].mask);
             bb[t].a = a;
             bb[t].b = b*100.0;
